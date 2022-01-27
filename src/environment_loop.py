@@ -38,8 +38,7 @@ class EnvironmentLoop:
             for i in range(steps):
                 # Select an action for the agent to perform.
                 legal = self._environment.actions()
-                illegal = list(set(range(self._environment.num_actions())) - set(legal))
-                action = self._agent.select_action(timestep.observation, illegal)
+                action = self._agent.select_action(timestep.observation, legal)
 
                 # Perform the action selected by the agent.
                 timestep = self._environment.step(action)

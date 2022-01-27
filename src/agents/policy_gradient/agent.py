@@ -1,9 +1,10 @@
 import sys
 
+import torch.nn.functional as F
+
 from src.agents.actors import FeedForwardActor
 from src.agents.agent import Agent
 from src.agents.policy_gradient.learning import PGLearner
-
 
 class PGAgent(Agent):
     """PG agent.
@@ -37,9 +38,13 @@ class PGAgent(Agent):
             "reg"           : reg,
             "clip_grad"     : clip_grad,
         }
-        self._buffer = buffer
+        # The policy for the agent uses the scores returned by the network to compute a
+        # boltzmann probability distribution over the actions from the action space. 
+        policy = lambda obs: F.softmax(policy_network(obs), dim=-1)
+        device = policy_network.device
+        self._actor = FeedForwardActor(policy, buffer, device)
         self._learner = PGLearner(policy_network, config, stdout)
-        self._actor = FeedForwardActor(policy_network, self._buffer)
+        self._buffer = buffer
         self._min_observations = 0
         self._steps_per_observation = None
 

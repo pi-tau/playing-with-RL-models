@@ -1,3 +1,5 @@
+import random
+
 import torch
 import torch.nn.functional as F
 
@@ -10,46 +12,47 @@ class FeedForwardActor(core.Actor):
     and outputs non-batched actions. It also allows adding experiences to a buffer.
 
     Attributes:
-        _policy (core.Network): A network object representing the policy of the actor.
+        _policy (func): A mapping that takes an observation from the environment and
+            outputs a probability distribution over the action space.
         _buffer_client (core.Buffer): A client used to pass observations to the buffer.
+        _device (torch.device): Determine which device to place observations upon, CPU or GPU.
     
     # TODO: The actor uses a client in order to add data asynchronously.
     """
 
-    def __init__(self, policy, buffer_client):
+    def __init__(self, policy, buffer_client, device):
         self._policy = policy
         self._buffer_client = buffer_client   # allows to send data to the replay buffer
+        self._device = device
 
     @torch.no_grad()
-    def select_action(self, observation, illegal=None):
+    def select_action(self, observation, legal=None):
         """Return the action selected by the policy.
-        Using the scores returned by the network compute a boltzmann probability
-        distribution over the actions from the action space. Select the next action
-        probabilistically, or deterministically returning the action with the highest
-        probability.
+        Using the policy function compute a probability distribution over the action space.
+        Select the next action by sampling from the probability distribution. If the
+        sampled action is illegal, then output a random legal action.
 
         Args:
             observation (np.Array):A numpy array of shape (state_size,), giving the
                 current state of the environment.
-            illegal (list[int]): A list of indices of the illegal actions for the agent.
+            legal (list[int]): A list of indices of the legal actions for the agent.
 
         Returns:
             act (int): The index of the action selected by the policy.
         """
-        # Compute the logits for each action by running the observation through the policy
-        # network.
+        # Convert the observations to torch tensors and move them to device.
         observation = torch.from_numpy(observation).float()
-        observation = observation.to(self._policy.device)
-        logits = self._policy(observation)
+        observation = observation.to(self._device)
 
-        # Mask-out illegal actions.
-        if illegal is not None:
-            logits[illegal] = float("-inf")
+        # Use the policy to compute a probability distribution over the actions and select
+        # the next action probabilistically.        
+        probs = self._policy(observation)
+        action = torch.multinomial(probs, 1).squeeze(dim=-1).item()
 
-        # Compute the probability distribution over the action set using a softmax on the
-        # logits. Sample the next action from the probability distribution. 
-        probs = F.softmax(logits, dim=-1)
-        return torch.multinomial(probs, 1).squeeze(dim=-1).item()
+        # If the selected action is illegal, then select a random legal action.
+        if legal is not None and action not in legal:
+            return random.choice(legal)
+        return action
 
     def observe_first(self, timestep):
         """Observe a time-step from the agent-environment interaction loop."""

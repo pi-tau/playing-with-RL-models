@@ -44,13 +44,14 @@ policy_network = policy_network.to(device)
 
 # Initialize a policy gradient agent.
 buffer = EpisodeBuffer()
-agent = PGAgent(policy_network, buffer, learning_rate=3e-4, stdout=stdout)
+agent = PGAgent(policy_network, buffer, use_baseline=True, discount=0.8,
+                learning_rate=1e-5, clip_grad=None, stdout=stdout)
 
 
 # Initialize and run the agent-environment feedback loop.
 loop = EnvironmentLoop(agent, env, should_update=False)
 iterations = 500
-episodes = 1024
+episodes = 128
 
 for i in range(iterations):
     tic = time.time()

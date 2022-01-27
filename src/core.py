@@ -67,7 +67,7 @@ class Actor(abc.ABC):
     """
 
     @abc.abstractmethod
-    def select_action(self, observation, illegal):
+    def select_action(self, observation, legal):
         """Select an action using some policy."""
 
     @abc.abstractmethod

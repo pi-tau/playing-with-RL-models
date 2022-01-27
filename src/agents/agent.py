@@ -13,9 +13,9 @@ class Agent:
     in order to allow the agent to take more than 1 learner step per action.
 
     Attributes:
-        _buffer (core.Buffer): A buffer object used to store past experiences.
-        _learner (core.Learner): A learner object used to update the policy network.
         _actor (core.Actor): An actor object used to interact with the environment.
+        _learner (core.Learner): A learner object used to update the policy network.
+        _buffer (core.Buffer): A buffer object used to store past experiences.
         _min_observations (int): 
         _steps_per_observation (int):
     """
