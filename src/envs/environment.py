@@ -58,7 +58,7 @@ class Environment(core.Environment):
 
     def reset(self):
         """Resets the environment to the initial state.
-        
+
         Returns:
             timestep (core.TimeStep): A namedtuple containing:
                 observation (np.Array): A numpy array representing the observable initial
@@ -128,10 +128,10 @@ class Environment(core.Environment):
 
     def _observe(self, gameState):
         """Constructs a numpy array representing the observable state of the environment.
-        
+
         Args:
             gameState (pacman.GameState): The game state to be observed.
-        
+
         Returns:
             observable (np.Array): A 1D numpy array of shape (size,). The size of the
                 array depends on the size of the game layout and the number of ghosts.
@@ -152,7 +152,7 @@ class Environment(core.Environment):
 
         # Get food positions encoded as boolean vector.
         food = np.array(gameState.getFood().data, dtype=float).reshape(-1)
-    
+
         # Get capsule positions encoded as boolean vector.
         capsules = np.zeros((width, height))
         for x, y in gameState.getCapsules():

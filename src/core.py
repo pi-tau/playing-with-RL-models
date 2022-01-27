@@ -36,7 +36,7 @@ class Environment(abc.ABC):
     @abc.abstractmethod
     def reset(self):
         """Resets the environment to the initial state.
-        
+
         Returns:
             timestep (core.TimeStep): A namedtuple containing:
                 observation (np.Array): A numpy array representing the observable initial
@@ -101,6 +101,7 @@ class Learner(abc.ABC):
     # Data will be read from this dataset asynchronously and this is primarily useful when
     # the dataset is filled by an external process.
     """
+
     @abc.abstractmethod
     def step(self, buffer):
         """Perform a single step of learning update."""

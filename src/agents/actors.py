@@ -45,7 +45,7 @@ class FeedForwardActor(core.Actor):
         # Mask-out illegal actions.
         if illegal is not None:
             logits[illegal] = float("-inf")
-        
+
         # Compute the probability distribution over the action set using a softmax on the
         # logits. Sample the next action from the probability distribution. 
         probs = F.softmax(logits, dim=-1)

@@ -7,7 +7,7 @@ from src import core
 class EpisodeBuffer(core.Buffer):
     """Episode buffer.
     A buffer object used to store trajectories of entire episodes.
-    
+
     Attributes:
         _observations (list[list[np.Array]]): A list of lists of numpy arrays. Each nested
             list stores the observed states during a single episode.
@@ -80,13 +80,13 @@ class EpisodeBuffer(core.Buffer):
 
     def draw(self, num_samples=None, device=torch.device("cpu")):
         """Draw a batch of episodes from the buffer and place them on device.
-        Pad shorter episodes with 0s to according to the longest episode in the batch. 
+        Pad shorter episodes with 0s according to the longest episode in the batch. 
 
         Args:
             num_samples (int, optional): Number of episodes in the batch. Default values
                 is None, returning all episodes in the buffer.
             device (torch.device): Determine which device to place the batch upon, CPU or GPU.
-        
+
         Returns:
             observations (torch.Tensor): A tensor of shape (b, t, size), giving the
                 observations from the batch of episodes, where b = batch size,

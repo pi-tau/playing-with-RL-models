@@ -2,7 +2,7 @@ class EnvironmentLoop:
     """A simple RL environment loop.
     This takes `Environment` and `Agent` instances and coordinates their interaction.
     The agent is updated at every step of the feedback loop if `should_update=True`.
-    
+
     This can be used as:
         loop = EnvironmentLoop(environment, agent, should_update=True)
         loop.run(num_episodes, steps)
@@ -10,7 +10,7 @@ class EnvironmentLoop:
 
     def __init__(self, agent, environment, should_update=True):
         """Initialize an environment loop object.
-        
+
         Args:
             agent (Agent): An agent object.
             environment (core.Environment): An environment object.
@@ -23,7 +23,7 @@ class EnvironmentLoop:
 
     def run(self, episodes, steps=1_000_000):
         """Run the agent-environment feedback loop.
-        
+
         Args:
             episodes (int): Number of episodes to run.
             steps (int, optional): Maximum number of steps for each episode.
