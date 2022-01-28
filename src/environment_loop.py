@@ -1,3 +1,5 @@
+from tqdm import tqdm
+
 class EnvironmentLoop:
     """A simple RL environment loop.
     This takes `Environment` and `Agent` instances and coordinates their interaction.
@@ -29,7 +31,7 @@ class EnvironmentLoop:
             steps (int, optional): Maximum number of steps for each episode.
                 Default value is 1_000_000.
         """
-        for _ in range(episodes):
+        for _ in tqdm(range(episodes)):
             # At the begining of each episode reset the environment and observe the
             # initial state.
             timestep = self._environment.reset()

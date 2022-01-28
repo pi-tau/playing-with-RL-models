@@ -83,7 +83,7 @@ class EpisodeBuffer(core.Buffer):
         Pad shorter episodes with 0s according to the longest episode in the batch. 
 
         Args:
-            num_samples (int, optional): Number of episodes in the batch. Default values
+            num_samples (int, optional): Number of episodes in the batch. Default value
                 is None, returning all episodes in the buffer.
             device (torch.device): Determine which device to place the batch upon, CPU or GPU.
 
@@ -116,6 +116,11 @@ class EpisodeBuffer(core.Buffer):
             for episode in self._done]
         done = torch.BoolTensor(padded_done).to(device)
         masks = ~torch.cat((done[0:1], done[1:] & done[:-1]), dim=0)
+
+        # Drawing from the `EpisodeBuffer` deletes the drawn experiences.
+        # This type of buffer is used only with offline policy gradient agents.
+        self.flush()
+
         return observations, actions, rewards, masks
 
     def flush(self):
