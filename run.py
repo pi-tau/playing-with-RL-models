@@ -43,18 +43,20 @@ policy_network = policy_network.to(device)
 
 
 # Initialize a policy gradient agent.
-batch_size = 64
+batch_size = 128
 buffer = EpisodeBuffer()
 agent = PGAgent(policy_network, buffer, use_baseline=False, discount=0.8,
-    batch_size=batch_size, learning_rate=1e-6, clip_grad=None, stdout=stdout)
+    batch_size=batch_size, learning_rate=3e-5, clip_grad=None, stdout=stdout)
 
 
 # Initialize and run the agent-environment feedback loop.
-iterations = 10
+iterations = 500
 loop = EnvironmentLoop(agent, env, should_update=True)
 tic = time.time()
 loop.run(episodes=iterations*batch_size, steps=500)
 toc = time.time()
 print(f"Training on device {device} takes {toc-tic:.3f} seconds", file=stdout)
 
+if env._display is not None:
+    env._display.finish()
 #

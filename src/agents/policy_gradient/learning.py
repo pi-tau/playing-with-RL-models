@@ -2,6 +2,7 @@ import sys
 
 import torch
 import torch.nn.functional as F
+from tqdm import tqdm
 
 from src import core
 
@@ -90,14 +91,14 @@ class PGLearner(core.Learner):
         if verbose:
             probs = F.softmax(logits, dim=-1)
             avg_policy_ent = -torch.mean(torch.sum(probs*torch.log(probs), dim=-1))
-            print(f"Mean return:        {torch.mean(torch.sum(rewards, dim=1)): .4f}", file=stdout)
-            print(f"Best return:        {max(torch.sum(rewards, dim=1)): .4f}", file=stdout)
-            print(f"Avg num of steps:   {torch.mean(torch.sum(masks, dim=1, dtype=float)): .0f}", file=stdout)
-            print(f"Longest episode:    {max(torch.sum(masks, dim=1, dtype=float)): .0f}", file=stdout)
-            print(f"Pseudo loss:        {loss.item(): .5f}", file=stdout)
-            print(f"Grad norm:          {total_norm: .5f}", file=stdout)
-            print(f"Avg policy entropy: {avg_policy_ent: .3f}", file=stdout)
-            print(f"Total num of steps: {torch.sum(masks): .0f}", file=stdout)
+            tqdm.write(f"\nMean return:        {torch.mean(torch.sum(rewards, dim=1)): .4f}", file=stdout)
+            tqdm.write(f"Best return:        {max(torch.sum(rewards, dim=1)): .4f}", file=stdout)
+            tqdm.write(f"Avg num of steps:   {torch.mean(torch.sum(masks, dim=1, dtype=float)): .0f}", file=stdout)
+            tqdm.write(f"Longest episode:    {max(torch.sum(masks, dim=1, dtype=float)): .0f}", file=stdout)
+            tqdm.write(f"Pseudo loss:        {loss.item(): .5f}", file=stdout)
+            tqdm.write(f"Grad norm:          {total_norm: .5f}", file=stdout)
+            tqdm.write(f"Avg policy entropy: {avg_policy_ent: .3f}", file=stdout)
+            tqdm.write(f"Total num of steps: {torch.sum(masks): .0f}", file=stdout)
 
     def _discounted_cumulative_returns(self, rewards, discount):
         """Compute the discounted cumulative reward-to-go at every time-step `t`.
