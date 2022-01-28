@@ -1,3 +1,4 @@
+from math import sqrt
 import sys
 sys.path.append("../..")
 
@@ -137,6 +138,76 @@ class Environment(core.Environment):
                 array depends on the size of the game layout and the number of ghosts.
                 size = (width x height) + num_ghosts
         """
+        observable = []
+        width, height = gameState.data.layout.width, gameState.data.layout.height
+        walls = gameState.getWalls()
+        food = gameState.getFood()
+        food_positions = ([(c, r) for r in range(food.height)
+                            for c in range(food.width) if food[c][r]])
+        capsule_positions = gameState.getCapsules()
+        pacman_position = gameState.getPacmanPosition()
+        ghosts = gameState.getGhostStates()
+        ghost_positions = [g.getPosition() for g in ghosts]
+
+        x, y = pacman_position
+
+        # Calculate the number of relevant objects in my direction.
+                #  East     West    North   South
+        deltas = [(1, 0), (-1, 0), (0, 1), (0, -1)]
+        for dx, dy in deltas:
+            num_food, num_capsules, num_scared_ghosts, num_active_ghosts = 0, 0, 0, 0
+            x_new = x + dx
+            y_new = y + dy
+            while x_new > 0 and x_new <= width and y_new > 0 and y_new <=height and not walls[x_new][y]:
+                if x_new < food.width and y_new < food.height and food[x_new][y_new]:
+                    num_food += 1
+                if (x_new, y_new) in capsule_positions:
+                    num_capsules += 1
+                for ghost in ghosts:
+                    if (x_new, y_new) == ghost.getPosition():
+                        if ghost.scaredTimer > 0: num_scared_ghosts += 1
+                        else: num_active_ghosts += 1
+                x_new += dx
+                y_new += dy
+            observable.extend((num_food, num_capsules, num_scared_ghosts, num_active_ghosts))
+
+        # Calculate distance to closest object for every direction.
+                    #      East      West     North     South
+        new_positions = [(x+1, y), (x-1, y), (x, y+1), (x, y-1)]
+        for x_new, y_new in new_positions:
+            close_food, close_capsule, close_active_ghost, close_scared_ghost = -1, -1, -1, -1
+            if x_new > 0 and x_new <= width and y_new > 0 and y_new <= height:
+                for food_x, food_y in food_positions:
+                    close_food = max(close_food, _distance(food_x, food_y, x_new, y_new))
+                for capsule_x, capsule_y in capsule_positions:
+                    close_capsule = max(close_capsule, _distance(capsule_x, capsule_y, x_new, y_new))
+                for idx, (ghost_x, ghost_y) in enumerate(ghost_positions):
+                    if ghosts[idx].scaredTimer > 0:
+                        close_scared_ghost = max(
+                            close_scared_ghost, _distance(ghost_x, ghost_y, x_new, y_new))
+                    else:
+                        close_active_ghost = max(
+                            close_active_ghost, _distance(ghost_x, ghost_y, x_new, y_new))
+            observable.extend((close_food+1, close_capsule+1, close_active_ghost+1, close_scared_ghost+1))
+
+        # Calculate the scared timer for every ghost.
+        scared_times = [g.scaredTimer for g in ghosts]
+        observable.extend(scared_times)
+
+        # Return the observable as numpy array.
+        return np.array(observable, dtype=np.float32)
+
+    def _observe_boolean(self, gameState):
+        """Constructs a numpy array representing the observable state of the environment.
+
+        Args:
+            gameState (pacman.GameState): The game state to be observed.
+
+        Returns:
+            observable (np.Array): A 1D numpy array of shape (size,). The size of the
+                array depends on the size of the game layout and the number of ghosts.
+                size = (width x height) + num_ghosts
+        """
         width, height = gameState.data.layout.width, gameState.data.layout.height
 
         # Get pacman position encoded as one-hot vector.
@@ -165,5 +236,19 @@ class Environment(core.Environment):
         # Stack all numpy vectors together.
         observation = np.concatenate([pacman, ghosts, food, capsules, scaredTimes])
         return observation.astype(np.float32)
+
+
+def _manhattan_distance(x1, y1, x2, y2):
+    return abs(x1 - x2) + abs(y1 - y2)
+
+def _euclidian_distance(x1, y1, x2, y2):
+    return sqrt((x1 - x2)**2 + (y1 - y2)**2)
+
+def _maze_distance(x1, y1, x2, y2, gameState):
+    # TODO:
+    # Implement function calculating the maze-distance between two points.
+    pass
+
+_distance = _manhattan_distance
 
 #
