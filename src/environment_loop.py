@@ -58,4 +58,6 @@ class EnvironmentLoop:
                 if timestep.done:
                     break
 
+        self._environment.close()
+
 #
