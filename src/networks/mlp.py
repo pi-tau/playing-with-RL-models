@@ -1,18 +1,16 @@
 import torch.nn as nn
 import torch.nn.functional as F
 
-from src import core
+from src.networks.base_network import BaseNetwork
 
 
-class MLPNetwork(nn.Module, core.Network):
+class MLPNetwork(nn.Module, BaseNetwork):
     """A function parametrization using a multi-layer perceptron neural network.
     The model architecture uses fully-connected layers.
     After applying the non-linearity a dropout layer is applied.
 
     For a network with L layers the architecture will be:
     {affine - leaky-ReLU - [dropout]} x (L - 1) - affine
-
-    The weights of the layers are initialized using Kaiming He uniform distribution.
 
     Attributes:
         input_size (int): The size of the input to the network
@@ -32,7 +30,9 @@ class MLPNetwork(nn.Module, core.Network):
 
         Args:
             input_size (int): Size of the environment state.
-            hidden_sizes (list[int]): A list of sizes for the hidden layers.
+            hidden_sizes (list[int]): A list of sizes for the hidden layers. Providing an
+                empty slice will create a linear function approximation with no hidden
+                layers.
             out_size (int): Number of possible actions the agent can choose from.
             dropout_rate (float): Dropout probability.
         """
@@ -54,6 +54,7 @@ class MLPNetwork(nn.Module, core.Network):
         self.hidden_layers = nn.ModuleList()
         self.dropout_layers = nn.ModuleList()
         fan_in = input_size
+        fan_out = input_size
         for fan_out in hidden_sizes:
             self.hidden_layers.append(nn.Linear(fan_in, fan_out))
             self.dropout_layers.append(nn.Dropout(dropout_rate))
