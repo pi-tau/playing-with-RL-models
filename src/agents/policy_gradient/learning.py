@@ -15,13 +15,15 @@ class PGLearner(core.Learner):
     This is an offline and on-policy learning algorithm.
 
     Attributes:
-        _policy_network (core.Network): The agent behavior policy to be optimized.
+        _policy_network (Network): The agent behavior policy to be optimized.
         _config (dict): A dictionary with optimization parameters (learning rate, etc.).
         _optimizer (torch.optim): A torch optimizer object used to perform gradient
             descent updates. The learner uses the Adam optimizer.
         _scheduler (torch.optim.lr_scheduler): A torch scheduler object used to schedule
             the value of the learning rate.
-        _stdout (file, optional): File object (stream) used for standard output of logging
+        _running_return (float): Keeping track of the running return from each episode
+            during training.
+        _stdout (file): File object (stream) used for standard output of logging
             information. Default value is `sys.stdout`.
     """
 
@@ -29,7 +31,7 @@ class PGLearner(core.Learner):
         """Initialize a policy gradient learner object.
 
         Args:
-            policy_network (core.Network): A network object used as a behavior policy.
+            policy_network (Network): A network object used as a behavior policy.
             config (dict): A dictionary with optimization parameters (learning rate, etc.).
             stdout (file, optional): File object (stream) used for standard output of
                 logging information. Default value is `sys.stdout`.
@@ -43,14 +45,14 @@ class PGLearner(core.Learner):
         )
         self._scheduler = torch.optim.lr_scheduler.StepLR(
             self._optimizer, step_size=1, gamma=config["lr_decay"])
+        self._running_return = 0.0
         self._stdout = stdout
 
     def step(self, buffer, verbose=True):
         """Perform a single policy gradient update step.
-        Draw a batch of episodes from the buffer and compute an estimate of the gradients
-        of the policy network.
-        Use the `reward-to-go` trick to reduce the variance of the estimate.
-        Subtract a baseline to reduce the variance of the estimate.
+        Draw a batch of episodes from the buffer and compute an estimate of the gradient
+        of the policy. Subtract a baseline or use the `reward-to-go` trick to reduce the
+        variance of the estimate.
 
         Args:
             buffer (core.Buffer): A buffer object used to store episodes of experiences.
@@ -60,17 +62,19 @@ class PGLearner(core.Learner):
         device = self._policy_network.device
         discount = self._config["discount"]
         clip_grad = self._config["clip_grad"]
+        eps = torch.finfo(torch.float32).eps
 
         # Fetch trajectories from the buffer.
         observations, actions, rewards, masks = buffer.draw(device=device)
 
-        # Compute discounted baselined returns.
+        # Compute discounted baselined returns, or compute discounted returns-to-go.
         if self._config["use_baseline"]:
             q_values = self._discounted_baselined_returns(rewards, discount)
         else:
-            # OR compute the discounted returns-to-go and normalize them.
             q_values = self._discounted_cumulative_returns(rewards, discount)
-            q_values = (q_values - torch.mean(q_values, dim=0)) / (torch.std(q_values, dim=0) + 1e-8)
+
+        # Normalize the discounted returns.
+        q_values = (q_values- torch.mean(q_values)) / (torch.std(q_values) + eps)
 
         # Compute the loss.
         logits = self._policy_network(observations)
@@ -88,18 +92,27 @@ class PGLearner(core.Learner):
         self._optimizer.step()
         self._scheduler.step()
 
+        # Keep track of the running return.
+        fact = 0.01
+        mean_return = torch.mean(torch.sum(rewards, dim=-1))
+        self._running_return = (1-fact) * self._running_return + fact * mean_return
+
         if verbose:
             probs = F.softmax(logits, dim=-1)
+            probs = torch.maximum(probs, torch.tensor(eps))
             avg_policy_ent = -torch.mean(torch.sum(probs*torch.log(probs), dim=-1))
-            tqdm.write(f"\nMean return:        {torch.mean(torch.sum(rewards, dim=1)): .4f}", file=stdout)
-            tqdm.write(f"Best return:        {max(torch.sum(rewards, dim=1)): .4f}", file=stdout)
+            tqdm.write("#-------------------------------------------------#", file=stdout)
+            tqdm.write(f"Mean return:        {torch.mean(torch.sum(rewards, dim=1)): .4f}", file=stdout)
+            tqdm.write(f"Best return:        {max(torch.sum(rewards, dim=1)): .1f}", file=stdout)
             tqdm.write(f"Avg num of steps:   {torch.mean(torch.sum(masks, dim=1, dtype=float)): .0f}", file=stdout)
             tqdm.write(f"Longest episode:    {max(torch.sum(masks, dim=1, dtype=float)): .0f}", file=stdout)
             tqdm.write(f"Pseudo loss:        {loss.item(): .5f}", file=stdout)
             tqdm.write(f"Grad norm:          {total_norm: .5f}", file=stdout)
             tqdm.write(f"Avg policy entropy: {avg_policy_ent: .3f}", file=stdout)
             tqdm.write(f"Total num of steps: {torch.sum(masks): .0f}", file=stdout)
+            tqdm.write(f"Running return:     {self._running_return:.4f}", file=stdout)
 
+    @torch.no_grad()
     def _discounted_cumulative_returns(self, rewards, discount):
         """Compute the discounted cumulative reward-to-go at every time-step `t`.
 
@@ -142,6 +155,7 @@ class PGLearner(core.Learner):
         discounted_returns = torch.matmul(rewards, toeplitz)
         return discounted_returns
 
+    @torch.no_grad()
     def _discounted_baselined_returns(self, rewards, discount):
         """Compute the discounted baselined return for every episode in the batch.
 
