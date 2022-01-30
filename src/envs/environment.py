@@ -196,14 +196,23 @@ class Environment(core.Environment):
                         close_active_ghost = max(
                             close_active_ghost, _distance(ghost_x, ghost_y, x_new, y_new))
             observable.extend((close_food+1, close_capsule+1, close_active_ghost+1, close_scared_ghost+1))
+            observable.append(1/(close_active_ghost+2))   # use also the inverse dist ot closest ghost
 
         # Calculate the scared timer for every ghost.
         scared_times = [g.scaredTimer for g in ghosts]
         observable.extend(scared_times)
 
-        # Calculate the number of food pallets left.
-        food_pallets = food.count()
-        observable.append(food_pallets)
+        # Count the number of food pallets left.
+        observable.append(food.count())
+
+        # Count the number of active ghosts one step away:
+                    #      East      West     North     South
+        new_positions = [(x+1, y), (x-1, y), (x, y+1), (x, y-1)]
+        num_close_ghosts = 0
+        for x_new, y_new in new_positions:
+            if (x_new, y_new) in ghost_positions:
+                num_close_ghosts += 1
+        observable.append(num_close_ghosts)
 
         # Return the observable as numpy array.
         return np.array(observable, dtype=np.float32)
