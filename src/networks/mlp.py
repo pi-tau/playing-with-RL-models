@@ -60,12 +60,6 @@ class MLPNetwork(nn.Module, core.Network):
             fan_in = fan_out
         self.output_layer = nn.Linear(fan_out, out_size)
 
-        # Initialize model parameters.
-        for param in self.parameters():
-            if len(param.shape) >= 2:
-                nn.init.kaiming_uniform_(param)         # weight
-            else:
-                nn.init.uniform_(param, -0.01, 0.01)    # bias
 
     def forward(self, x):
         """Take a mini-batch of environment states and compute scores over the possible
@@ -87,5 +81,13 @@ class MLPNetwork(nn.Module, core.Network):
             out = self.dropout_layers[idx](out)
         out = self.output_layer(out)
         return out
+
+    def copy(self):
+        clone = type(self)(**self.kwargs)
+        clone.load_state_dict(self.state_dict())
+        return clone
+
+    def device(self):
+        return next(self.parameters()).data.device
 
 #

@@ -16,16 +16,16 @@ class Agent:
         _actor (core.Actor): An actor object used to interact with the environment.
         _learner (core.Learner): A learner object used to update the policy network.
         _buffer (core.Buffer): A buffer object used to store past experiences.
-        _min_observations (int): 
+        _min_observations (int):
         _steps_per_observation (int):
     """
 
-    def __init__(self, actor, learner, buffer, min_observations, steps_per_observation):
+    def __init__(self, actor, learner, buffer): #, min_observations, steps_per_observation):
         self._buffer = buffer
         self._learner = learner
         self._actor = actor
-        self._min_observations = min_observations
-        self._steps_per_observation = steps_per_observation
+        # self._min_observations = min_observations
+        # self._steps_per_observation = steps_per_observation
 
     def select_action(self, observation, illegal=None):
         """The agent selects an action by delegating to the actor."""

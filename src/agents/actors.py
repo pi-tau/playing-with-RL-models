@@ -1,5 +1,5 @@
 import random
-
+import numpy as np
 import torch
 import torch.nn.functional as F
 
@@ -16,7 +16,7 @@ class FeedForwardActor(core.Actor):
             outputs a probability distribution over the action space.
         _buffer_client (core.Buffer): A client used to pass observations to the buffer.
         _device (torch.device): Determine which device to place observations upon, CPU or GPU.
-    
+
     # TODO: The actor uses a client in order to add data asynchronously.
     """
 
@@ -45,7 +45,7 @@ class FeedForwardActor(core.Actor):
         observation = observation.to(self._device)
 
         # Use the policy to compute a probability distribution over the actions and select
-        # the next action probabilistically.        
+        # the next action probabilistically.
         probs = self._policy(observation)
         action = torch.multinomial(probs, 1).squeeze(dim=-1).item()
 
@@ -62,4 +62,63 @@ class FeedForwardActor(core.Actor):
         """Observe a time-step from the agent-environment interaction loop."""
         self._buffer_client.add(action, timestep, is_last)
 
+
+class DQNActor(core.Actor):
+
+    def __init__(self, Qnetwork, buffer_client, epsilon=1.0, cache_limit=1):
+        self.Qnetwork = Qnetwork
+        self.epsilon = epsilon
+        self.buffer_client = buffer_client
+        # self._buffer_cache = []
+        # self._cache_limit = cache_limit
+        self._last_timestep = None
+
+    def select_action(self, observation, legal):
+        observation = torch.from_numpy(observation).float()
+        observation = observation.to(self.Qnetwork.device())
+
+        with torch.no_grad():
+            qvalues = self.Qnetwork(observation).cpu().numpy()[legal]
+            argmax = np.argmax(qvalues)
+        if np.random.uniform(0.0, 1.0) < self.epsilon:
+            i = np.random.randint(0, len(legal))
+            while i == argmax:
+                i = np.random.randint(0, len(legal))
+            return legal[i]
+        else:
+            return legal[argmax]
+
+    def observe_first(self, timestep):
+        self._last_timestep = timestep
+
+    def observe(self, action, timestep, is_last=False):
+        replay_experience = DQNActor.make_replay_experience(
+            self._last_timestep,
+            action,
+            timestep
+        )
+        self.buffer_client.add(replay_experience)
+        self._last_timestep = timestep
+        # self._buffer_cache.append(replay_experience)
+        # if len(self._buffer_cache) >= self._cache_limit:
+        #     self.buffer_client.add(self._buffer_cache)
+        #     self._buffer_cache.clear()
+
+    @staticmethod
+    def make_replay_experience(timestep0, action, timestep1, kind='internal'):
+        r = 0
+        if timestep1.reward < 0:
+            r = -1
+        elif timestep1.reward > 0:
+            r = +1
+        if kind == 'internal':
+            return core.ReplayExperience(
+                timestep0.observation,    # current state
+                action,                   # action
+                r,                        # reward
+                timestep1.observation,    # next state
+                )
+        elif kind == 'frame':
+            pass
+            # TODO
 #
