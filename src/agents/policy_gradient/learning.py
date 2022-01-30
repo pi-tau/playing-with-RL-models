@@ -45,7 +45,7 @@ class PGLearner(core.Learner):
         )
         self._scheduler = torch.optim.lr_scheduler.StepLR(
             self._optimizer, step_size=1, gamma=config["lr_decay"])
-        self._running_return = 0.0
+        self._running_return = None
         self._stdout = stdout
 
     def step(self, buffer, verbose=True):
@@ -93,9 +93,9 @@ class PGLearner(core.Learner):
         self._scheduler.step()
 
         # Keep track of the running return.
-        fact = 0.01
         mean_return = torch.mean(torch.sum(rewards, dim=-1))
-        self._running_return = (1-fact) * self._running_return + fact * mean_return
+        if self._running_return is None: self._running_return = mean_return
+        else: self._running_return = 0.99*self._running_return + 0.01*mean_return
 
         if verbose:
             probs = F.softmax(logits, dim=-1)
