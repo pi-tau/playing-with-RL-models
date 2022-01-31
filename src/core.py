@@ -59,6 +59,10 @@ class Environment(abc.ABC):
         """The shape of the numpy array representing the observable state of the environment."""
 
     @abc.abstractmethod
+    def graphics(self, graphics):
+        """Set a boolean flag whether a graphical interface should be displayed."""
+
+    @abc.abstractmethod
     def close(self):
         """Stop the environment engine."""
 

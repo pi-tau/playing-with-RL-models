@@ -25,6 +25,8 @@ class Environment(core.Environment):
         _actToIdx (dict): A reverse mapping from game action to action index.
         _num_actions (int): The total number of possible actions in the game.
         _display (pacman.PacmanGraphics): Graphical display for the Pacman game.
+        _graphics (bool): A boolean flag indicating whether the environment should display
+            a graphical interface for the game.
     """
 
     def __init__(self, layout="originalClassic", num_ghosts=4, graphics=False):
@@ -54,9 +56,8 @@ class Environment(core.Environment):
         self._actToIdx = {v:k for k, v in self._idxToAction.items()}
         self._num_actions = len(self._idxToAction)
 
-        self._display = None
-        if graphics:
-            self._display = PacmanGraphics(zoom=1.0, frameTime=0.1)
+        self._display = PacmanGraphics(zoom=1.0, frameTime=0.1)
+        self._graphics = graphics
 
         self.reset()
 
@@ -74,7 +75,7 @@ class Environment(core.Environment):
         self._gameState = GameState()
         self._gameState.initialize(self._layout, self._num_ghosts)
 
-        if self._display is not None:
+        if self._graphics:
             self._display.initialize(self._gameState.data)
 
         return core.TimeStep(self._observe(self._gameState), 0, False, {})
@@ -91,10 +92,13 @@ class Environment(core.Environment):
         """The shape of the numpy array representing the observable state of the environment."""
         return self._shape
 
+    def graphics(self, graphics):
+        """Set a boolean flag whether a graphical interface should be displayed."""
+        self._graphics = graphics
+
     def close(self):
         """Close the graphics display."""
-        if self._display is not None:
-            self._display.finish()
+        self._display.finish()
 
     def step(self, actID):
         """This method performs one full ply by executing one move from every player
@@ -124,7 +128,7 @@ class Environment(core.Environment):
         next_state = self._gameState
         for idx, ag in enumerate(agents):
                 next_state = next_state.generateSuccessor(idx, ag.getAction(next_state))
-                if self._display is not None:
+                if self._graphics:
                     self._display.update(next_state.data)
                 reward = next_state.getScore() - self._gameState.getScore()
                 done = (next_state.isWin() or next_state.isLose())
@@ -202,8 +206,8 @@ class Environment(core.Environment):
         scared_times = [g.scaredTimer for g in ghosts]
         observable.extend(scared_times)
 
-        # Count the number of food pallets left.
-        observable.append(food.count())
+        # # Count the number of food pallets left.
+        # observable.append(food.count())
 
         # Count the number of active ghosts one step away:
                     #      East      West     North     South
