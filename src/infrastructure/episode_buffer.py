@@ -80,7 +80,7 @@ class EpisodeBuffer(core.Buffer):
 
     def draw(self, num_samples=None, device=torch.device("cpu")):
         """Draw a batch of episodes from the buffer and place them on device.
-        Pad shorter episodes with 0s according to the longest episode in the batch. 
+        Pad shorter episodes with 0s according to the longest episode in the batch.
 
         Args:
             num_samples (int, optional): Number of episodes in the batch. Default value
