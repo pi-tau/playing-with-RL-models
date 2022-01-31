@@ -23,6 +23,9 @@ class EnvironmentLoop:
         self._environment = environment
         self._should_update = should_update
 
+    def should_update(self, should_update):
+        self._should_update = should_update
+
     def run(self, episodes, steps=1_000_000):
         """Run the actor-environment feedback loop.
 
