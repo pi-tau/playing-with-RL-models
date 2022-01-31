@@ -32,7 +32,14 @@ class PGLearner(core.Learner):
 
         Args:
             policy_network (Network): A network object used as a behavior policy.
-            config (dict): A dictionary with optimization parameters (learning rate, etc.).
+            config (dict): A dictionary with configuration parameters containing:
+                use_reward_to_go (bool) : If True the learning step uses cumulative
+                    returns. If False, the learning step uses total baselined returns
+                discount (float): Discount factor for future rewards.
+                learning_rate (float): Learning rate parameter.
+                lr_decay (float): Learning rate decay parameter.
+                reg (float): L2 regularization strength.
+                clip_grad (float): Parameter for gradient clipping by norm.
             stdout (file, optional): File object (stream) used for standard output of
                 logging information. Default value is `sys.stdout`.
         """
@@ -68,13 +75,16 @@ class PGLearner(core.Learner):
         observations, actions, rewards, masks = buffer.draw(device=device)
 
         # Compute discounted baselined returns, or compute discounted returns-to-go.
-        if self._config["use_baseline"]:
-            q_values = self._discounted_baselined_returns(rewards, discount)
-        else:
+        if self._config["use_reward_to_go"]:
             q_values = self._discounted_cumulative_returns(rewards, discount)
+            # Baseline the discounted returns.
+            # q_values -= torch.sum(q_values, dim=0) / torch.maximum(
+            #     torch.sum(masks, dim=0), torch.Tensor([1.]).to(device))
+            # Normalize the discounted returns.
+            q_values = (q_values - torch.mean(q_values)) / (torch.std(q_values) + eps)
+        else:
+            q_values = self._discounted_baselined_returns(rewards, discount)
 
-        # Normalize the discounted returns.
-        q_values = (q_values- torch.mean(q_values)) / (torch.std(q_values) + eps)
 
         # Compute the loss.
         logits = self._policy_network(observations)
@@ -126,7 +136,7 @@ class PGLearner(core.Learner):
         agent to focus more on the rewards that are closer in time. This can also be
         thought of as a means for reducing variance, because there is more variance
         possible when considering rewards that are further into the future.
-        
+
         The cumulative return at time-step `t` is computed as the sum of all future
         rewards starting from the current time-step.
         The discounted cumulative returns for a batch of episodes can be computed as a

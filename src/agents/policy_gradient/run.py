@@ -34,28 +34,34 @@ print(f"Using device: {device}\n", file=stdout)
 
 
 # Initialize the environment.
-env = Environment(layout="testClassic")
+env = Environment(layout="testClassic", num_ghosts=0)
 
 
 # Initialize a policy network, move it to device and prepare for training.
-policy_network = MLPNetwork(env.shape()[0], [256], env.num_actions())
+policy_network = MLPNetwork(env.shape()[0], [256, 256], env.num_actions())
 policy_network.train()
 policy_network = policy_network.to(device)
 
 
 # Initialize a policy gradient agent.
-batch_size = 64
+batch_size = 32
 buffer = EpisodeBuffer()
-agent = PGAgent(policy_network, buffer, use_baseline=False, discount=0.9,
-    batch_size=batch_size, learning_rate=3e-6, clip_grad=1000, stdout=stdout)
+agent = PGAgent(policy_network, buffer, use_reward_to_go=True, discount=0.9,
+    batch_size=batch_size, learning_rate=1e-5, clip_grad=100, stdout=stdout)
 
 
 # Initialize and run the agent-environment feedback loop.
-iterations = 10000
+iterations = 1000
 loop = EnvironmentLoop(agent, env, should_update=True)
 tic = time.time()
-loop.run(episodes=iterations*batch_size, steps=500)
+loop.run(episodes=iterations*batch_size, steps=100)
 toc = time.time()
 print(f"Training on device {device} takes {toc-tic:.3f} seconds", file=stdout)
+
+
+# Display the progress.
+loop.should_update(False)
+env.graphics = True
+loop.run(episodes=5, steps=30)
 
 #
