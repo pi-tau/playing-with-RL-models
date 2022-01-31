@@ -1,6 +1,7 @@
 import os
 import sys
 import time
+sys.path.append("../../..")
 
 import numpy as np
 import torch
@@ -37,7 +38,7 @@ env = Environment(layout="testClassic")
 
 
 # Initialize a policy network, move it to device and prepare for training.
-policy_network = MLPNetwork(env.shape()[0], [1024, 1024], env.num_actions())
+policy_network = MLPNetwork(env.shape()[0], [256], env.num_actions())
 policy_network.train()
 policy_network = policy_network.to(device)
 
@@ -45,12 +46,12 @@ policy_network = policy_network.to(device)
 # Initialize a policy gradient agent.
 batch_size = 64
 buffer = EpisodeBuffer()
-agent = PGAgent(policy_network, buffer, use_baseline=False, discount=0.8,
-    batch_size=batch_size, learning_rate=1e-6, clip_grad=None, stdout=stdout)
+agent = PGAgent(policy_network, buffer, use_baseline=False, discount=0.9,
+    batch_size=batch_size, learning_rate=3e-6, clip_grad=1000, stdout=stdout)
 
 
 # Initialize and run the agent-environment feedback loop.
-iterations = 10
+iterations = 10000
 loop = EnvironmentLoop(agent, env, should_update=True)
 tic = time.time()
 loop.run(episodes=iterations*batch_size, steps=500)

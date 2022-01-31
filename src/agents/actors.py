@@ -1,7 +1,5 @@
-import random
 import numpy as np
 import torch
-import torch.nn.functional as F
 
 from src import core
 
@@ -26,16 +24,16 @@ class FeedForwardActor(core.Actor):
         self._device = device
 
     @torch.no_grad()
-    def select_action(self, observation, legal=None):
+    def select_action(self, observation, illegal=[]):
         """Return the action selected by the policy.
         Using the policy function compute a probability distribution over the action space.
-        Select the next action by sampling from the probability distribution. If the
-        sampled action is illegal, then output a random legal action.
+        Select the next action by sampling from the probability distribution.
 
         Args:
             observation (np.Array):A numpy array of shape (state_size,), giving the
                 current state of the environment.
-            legal (list[int]): A list of indices of the legal actions for the agent.
+            illegal (list[int], optional): A list of indices of the illegal actions for
+                the agent. Default value is [], meaning all actions are legal.
 
         Returns:
             act (int): The index of the action selected by the policy.
@@ -46,12 +44,8 @@ class FeedForwardActor(core.Actor):
 
         # Use the policy to compute a probability distribution over the actions and select
         # the next action probabilistically.
-        probs = self._policy(observation)
+        probs = self._policy(observation, illegal)
         action = torch.multinomial(probs, 1).squeeze(dim=-1).item()
-
-        # If the selected action is illegal, then select a random legal action.
-        if legal is not None and action not in legal:
-            return random.choice(legal)
         return action
 
     def observe_first(self, timestep):

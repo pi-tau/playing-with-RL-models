@@ -24,6 +24,7 @@ class Environment(core.Environment):
         _idxToAction (dict): A mapping from action index to game action.
         _actToIdx (dict): A reverse mapping from game action to action index.
         _num_actions (int): The total number of possible actions in the game.
+        _display (pacman.PacmanGraphics): Graphical display for the Pacman game.
     """
 
     def __init__(self, layout="originalClassic", num_ghosts=4, graphics=False):
@@ -53,8 +54,10 @@ class Environment(core.Environment):
         self._actToIdx = {v:k for k, v in self._idxToAction.items()}
         self._num_actions = len(self._idxToAction)
 
-        self._graphics = graphics
         self._display = None
+        if graphics:
+            self._display = PacmanGraphics(zoom=1.0, frameTime=0.1)
+
         self.reset()
 
     def reset(self):
@@ -71,8 +74,7 @@ class Environment(core.Environment):
         self._gameState = GameState()
         self._gameState.initialize(self._layout, self._num_ghosts)
 
-        if self._graphics:
-            self._display = PacmanGraphics(zoom=1.0, frameTime=0.1)
+        if self._display is not None:
             self._display.initialize(self._gameState.data)
 
         return core.TimeStep(self._observe(self._gameState), 0, False, [])
@@ -88,6 +90,11 @@ class Environment(core.Environment):
     def shape(self):
         """The shape of the numpy array representing the observable state of the environment."""
         return self._shape
+
+    def close(self):
+        """Close the graphics display."""
+        if self._display is not None:
+            self._display.finish()
 
     def step(self, actID):
         """This method performs one full ply by executing one move from every player
@@ -117,7 +124,7 @@ class Environment(core.Environment):
         next_state = self._gameState
         for idx, ag in enumerate(agents):
                 next_state = next_state.generateSuccessor(idx, ag.getAction(next_state))
-                if self._graphics:
+                if self._display is not None:
                     self._display.update(next_state.data)
                 reward = next_state.getScore() - self._gameState.getScore()
                 done = (next_state.isWin() or next_state.isLose())
@@ -189,10 +196,23 @@ class Environment(core.Environment):
                         close_active_ghost = max(
                             close_active_ghost, _distance(ghost_x, ghost_y, x_new, y_new))
             observable.extend((close_food+1, close_capsule+1, close_active_ghost+1, close_scared_ghost+1))
+            observable.append(1/(close_active_ghost+2))   # use also the inverse dist ot closest ghost
 
         # Calculate the scared timer for every ghost.
         scared_times = [g.scaredTimer for g in ghosts]
         observable.extend(scared_times)
+
+        # Count the number of food pallets left.
+        observable.append(food.count())
+
+        # Count the number of active ghosts one step away:
+                    #      East      West     North     South
+        new_positions = [(x+1, y), (x-1, y), (x, y+1), (x, y-1)]
+        num_close_ghosts = 0
+        for x_new, y_new in new_positions:
+            if (x_new, y_new) in ghost_positions:
+                num_close_ghosts += 1
+        observable.append(num_close_ghosts)
 
         # Return the observable as numpy array.
         return np.array(observable, dtype=np.float32)
