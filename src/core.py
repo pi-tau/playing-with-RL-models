@@ -62,6 +62,7 @@ class Environment(abc.ABC):
     def close(self):
         """Stop the environment engine."""
 
+
 class Actor(abc.ABC):
     """ Abstract actor object.
     This interface defines an API for an Actor. The actor uses a policy network to select
@@ -87,7 +88,7 @@ class Actor(abc.ABC):
 
         # TODO:
         # Fetch the updated weights of the policy network after the learner has updated
-        # them. The learner will be updating the weights asynchronously. 
+        # them. The learner will be updating the weights asynchronously.
         """
 
 
@@ -122,7 +123,7 @@ class Buffer(abc.ABC):
     experiences.
     The interface provides methods for adding and drawing from the buffer.
     """
- 
+
     @abc.abstractmethod
     def add_first(self, timestep):
         """Add an initial time-step to the buffer."""
@@ -138,4 +139,5 @@ class Buffer(abc.ABC):
     @abc.abstractmethod
     def flush(self):
         """Flush the buffer."""
+
 #

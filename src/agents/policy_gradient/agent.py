@@ -44,11 +44,15 @@ class PGAgent(Agent):
         }
         # The policy for the agent uses the scores returned by the network to compute a
         # boltzmann probability distribution over the actions from the action space.
-        def policy(observation, illegal):
+        def policy(observation, legal):
             logits = policy_network(observation)
-            logits[illegal] = float("-inf")
+            if legal is not None:
+                num_actions = policy_network.output_layer.out_features
+                illegal = list(set(range(num_actions)) - set(legal))
+                logits[illegal] = float("-inf")
             probs = F.softmax(logits, dim=-1)
             return probs
+
         device = policy_network.device
         self._actor = FeedForwardActor(policy, buffer, device)
         self._learner = PGLearner(policy_network, config, stdout)

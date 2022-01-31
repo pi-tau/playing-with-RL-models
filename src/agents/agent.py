@@ -1,4 +1,6 @@
-class Agent:
+from src import core
+
+class Agent(core.Actor):
     """Agent class which combines acting and learning.
     This provides an implementation of the `Agent` interface which acts and learns.
     It takes as input instances of both `core.Actor` and `core.Learner` classes, and
@@ -16,7 +18,7 @@ class Agent:
         _actor (core.Actor): An actor object used to interact with the environment.
         _learner (core.Learner): A learner object used to update the policy network.
         _buffer (core.Buffer): A buffer object used to store past experiences.
-        _min_observations (int): 
+        _min_observations (int):
         _steps_per_observation (int):
     """
 

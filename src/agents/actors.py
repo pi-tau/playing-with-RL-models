@@ -13,7 +13,7 @@ class FeedForwardActor(core.Actor):
             outputs a probability distribution over the action space.
         _buffer_client (core.Buffer): A client used to pass observations to the buffer.
         _device (torch.device): Determine which device to place observations upon, CPU or GPU.
-    
+
     # TODO: The actor uses a client in order to add data asynchronously.
     """
 
@@ -23,7 +23,7 @@ class FeedForwardActor(core.Actor):
         self._device = device
 
     @torch.no_grad()
-    def select_action(self, observation, illegal=[]):
+    def select_action(self, observation, legal=None):
         """Return the action selected by the policy.
         Using the policy function compute a probability distribution over the action space.
         Select the next action by sampling from the probability distribution.
@@ -31,8 +31,8 @@ class FeedForwardActor(core.Actor):
         Args:
             observation (np.Array):A numpy array of shape (state_size,), giving the
                 current state of the environment.
-            illegal (list[int], optional): A list of indices of the illegal actions for
-                the agent. Default value is [], meaning all actions are legal.
+            legal (list[int], optional): A list of indices of the legal actions for
+                the agent. Default value is None, meaning all actions are legal.
 
         Returns:
             act (int): The index of the action selected by the policy.
@@ -43,7 +43,7 @@ class FeedForwardActor(core.Actor):
 
         # Use the policy to compute a probability distribution over the actions and select
         # the next action probabilistically.
-        probs = self._policy(observation, illegal)
+        probs = self._policy(observation, legal)
         action = torch.multinomial(probs, 1).squeeze(dim=-1).item()
         return action
 
