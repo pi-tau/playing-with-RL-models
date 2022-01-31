@@ -15,6 +15,11 @@ class BaseNetwork:
         """str: Determine which device to place the Tensors upon, CPU or GPU."""
         return self.output_layer.weight.device
 
+    def copy(self):
+        clone = type(self)(**self.kwargs)
+        clone.load_state_dict(self.state_dict())
+        return clone
+
     @classmethod
     def load(cls, model_path):
         """Load the model from a file."""

@@ -82,12 +82,4 @@ class MLPNetwork(nn.Module, BaseNetwork):
         out = self.output_layer(out)
         return out
 
-    def copy(self):
-        clone = type(self)(**self.kwargs)
-        clone.load_state_dict(self.state_dict())
-        return clone
-
-    def device(self):
-        return next(self.parameters()).data.device
-
 #
