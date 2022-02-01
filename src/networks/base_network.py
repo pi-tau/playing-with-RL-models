@@ -24,6 +24,11 @@ class BaseNetwork:
         model.load_state_dict(params["state_dict"])
         return model
 
+    def copy(self):
+        clone = type(self)(**self.kwargs)
+        clone.load_state_dict(self.state_dict())
+        return clone
+
     def save(self, path):
         """Save the model to a file."""
         params = {"kwargs": self.kwargs,
