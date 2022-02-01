@@ -64,6 +64,6 @@ class PGAgent(Agent):
         # Prefill the buffer with `batch_size` different episodes simulated using the current
         # policy and only then perform one-update step.
         self._min_observations = batch_size
-        self._steps_per_observation = None
+        self._observations_per_step = None
 
 #
