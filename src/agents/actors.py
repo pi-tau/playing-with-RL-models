@@ -69,7 +69,7 @@ class DQNActor(core.Actor):
 
     def select_action(self, observation, legal):
         observation = torch.from_numpy(observation).float()
-        observation = observation.to(self.Qnetwork.device())
+        observation = observation.to(self.Qnetwork.device)
 
         with torch.no_grad():
             qvalues = self.Qnetwork(observation).cpu().numpy()[legal]

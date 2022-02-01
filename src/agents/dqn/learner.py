@@ -1,4 +1,5 @@
 import torch
+import torch.nn
 from src.core import Learner
 
 
@@ -26,6 +27,13 @@ class DQNLearner(Learner):
         return self._Qnetwork.copy()
 
     def step(self, buffer, n_steps):
+
+        def huber_loss(inputs, target, delta=1.0):
+            abs_diff = torch.abs(inputs - target)
+            l1_loss = delta * (abs_diff - 0.5 * delta)
+            l2_loss = 0.5 * (inputs - target) ** 2
+            return torch.mean(torch.where(abs_diff < delta, l2_loss, l1_loss))
+
         target_network = self._Qnetwork.copy()
         target_network.eval()
 
@@ -44,10 +52,12 @@ class DQNLearner(Learner):
             actions = torch.LongTensor(actions).to(self._device).reshape(-1, 1)
             rewards = torch.FloatTensor(rewards).to(self._device)
             # Regression
-            argmax_Q, _ = torch.max(target_network(states1), dim=1)
-            qvalues = torch.gather(self._Qnetwork(states0), 1, actions).squeeze()
-            TD_error = qvalues - (rewards + self._discount * argmax_Q)
-            loss = 0.5 * torch.mean(TD_error ** 2)
+            argmax_Q, _ = torch.max(self._Qnetwork(states1), dim=1)
+            qvalues = torch.gather(target_network(states0), 1, actions).squeeze()
+            TD_target = rewards + self._discount * argmax_Q
+            # TD_error = qvalues - (rewards + self._discount * argmax_Q)
+            # loss = 0.5 * torch.mean(TD_error ** 2)
+            loss = huber_loss(qvalues, TD_target, delta=2.0)
             # Backward pass
             self._optimizer.zero_grad()
             loss.backward()

@@ -6,8 +6,8 @@ import numpy as np
 import torch
 
 from src.agents.actors import DQNActor
-from src.agents.dqn.agent import DQNAgent
-from src.agents.dqn.learner import DQNLearner
+from .agent import DQNAgent
+from .learner import DQNLearner
 from src.environment_loop import EnvironmentLoop
 from src.envs.environment import Environment
 from src.infrastructure.replay_buffer import ReplayBuffer
@@ -38,14 +38,14 @@ print(f"Using device: {device}\n", file=stdout)
 env = Environment(layout="testClassic", graphics=False)
 
 
-q_network = MLPNetwork(env.shape()[0], [1024, 1024], env.num_actions())
+q_network = MLPNetwork(env.shape()[0], [512, 1024], env.num_actions())
 q_network.train()
 q_network = q_network.to(device)
 
 # Initialize a Deep Q-Learning agent
-batch_size = 128
+batch_size = 256
 buffer = ReplayBuffer()
-epsilon = 1.0
+epsilon = 0.8
 
 actor = DQNActor(q_network, buffer, epsilon)
 learner = DQNLearner(q_network, batch_size=batch_size)

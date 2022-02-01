@@ -13,7 +13,7 @@ class DQNLearnerLogger:
     def add_mean_Q(self):
         qvalues = []
         net = self._agent._learner.Qnetwork
-        device = net.device()
+        device = net.device
         with torch.no_grad():
             for _ in range(10):
                 batch = self._agent._buffer.draw(100)
