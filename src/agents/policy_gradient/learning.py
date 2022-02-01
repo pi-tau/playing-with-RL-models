@@ -38,6 +38,7 @@ class PGLearner(core.Learner):
                 discount (float): Discount factor for future rewards.
                 learning_rate (float): Learning rate parameter.
                 lr_decay (float): Learning rate decay parameter.
+                decay_steps (int): Every `decay_steps` decay the learning rate by `lr_decay`.
                 reg (float): L2 regularization strength.
                 clip_grad (float): Parameter for gradient clipping by norm.
             stdout (file, optional): File object (stream) used for standard output of
@@ -51,7 +52,7 @@ class PGLearner(core.Learner):
             weight_decay=config["reg"],
         )
         self._scheduler = torch.optim.lr_scheduler.StepLR(
-            self._optimizer, step_size=1, gamma=config["lr_decay"])
+            self._optimizer, step_size=config["decay_steps"], gamma=config["lr_decay"])
         self._running_return = None
         self._stdout = stdout
 
@@ -81,10 +82,9 @@ class PGLearner(core.Learner):
             # q_values -= torch.sum(q_values, dim=0) / torch.maximum(
             #     torch.sum(masks, dim=0), torch.Tensor([1.]).to(device))
             # Normalize the discounted returns.
-            q_values = (q_values - torch.mean(q_values)) / (torch.std(q_values) + eps)
+            # q_values = (q_values - torch.mean(q_values)) / (torch.std(q_values) + eps)
         else:
             q_values = self._discounted_baselined_returns(rewards, discount)
-
 
         # Compute the loss.
         logits = self._policy_network(observations)
