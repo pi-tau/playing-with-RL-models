@@ -95,6 +95,8 @@ class Environment(core.Environment):
     def graphics(self, graphics):
         """Set a boolean flag whether a graphical interface should be displayed."""
         self._graphics = graphics
+        if not graphics:
+            self._display.finish()
 
     def close(self):
         """Close the graphics display."""
