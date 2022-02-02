@@ -60,7 +60,7 @@ class DQNLearner(Learner):
             # with numpy.array() before converting to a tensor
             states0 = np.array(states0, dtype=np.float32)
             states1 = np.array(states1, dtype=np.float32)
-            actions = np.array(actions, dtype=np.int32)
+            actions = np.array(actions, dtype=np.int64)
             rewards = np.array(rewards, dtype=np.float32)
             done = np.array(done, dtype=bool)
             states0 = torch.from_numpy(states0).to(self.device)
