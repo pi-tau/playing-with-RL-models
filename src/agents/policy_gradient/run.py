@@ -47,21 +47,21 @@ policy_network = policy_network.to(device)
 batch_size = 32
 buffer = EpisodeBuffer()
 agent = PGAgent(policy_network, buffer, use_reward_to_go=True, discount=0.9,
-    batch_size=batch_size, learning_rate=1e-6, clip_grad=100, stdout=stdout)
+    batch_size=batch_size, learning_rate=3e-6, clip_grad=100, stdout=stdout)
 
 
 # Initialize and run the agent-environment feedback loop.
 iterations = 5000
 loop = EnvironmentLoop(agent, env, should_update=True)
 tic = time.time()
-loop.run(episodes=iterations*batch_size, steps=200)
+loop.run(episodes=iterations*batch_size, steps=100)
 toc = time.time()
 print(f"Training on device {device} takes {toc-tic:.3f} seconds", file=stdout)
 
 
 # Display the progress.
 loop.should_update(False)
-env.graphics = True
+env.graphics(True)
 loop.run(episodes=5, steps=30)
 
 #

@@ -25,6 +25,9 @@ class PGLearner(core.Learner):
             during training.
         stdout (file): File object (stream) used for standard output of logging
             information. Default value is `sys.stdout`.
+        train_history (dict): A dictionary storing information during training containing:
+            mean_return (list(float)): A list of the mean returns history.
+            running_return (list(float)): A list of the running returns history.
     """
 
     def __init__(self, policy_network, config, stdout=sys.stdout):
@@ -55,6 +58,7 @@ class PGLearner(core.Learner):
             self.optimizer, step_size=config["decay_steps"], gamma=config["lr_decay"])
         self.running_return = None
         self.stdout = stdout
+        self.train_history = {"mean_return":[], "running_return":[]}
 
     def step(self, buffer, verbose=True):
         """Perform a single policy gradient update step.
@@ -104,6 +108,10 @@ class PGLearner(core.Learner):
         mean_return = torch.mean(torch.sum(rewards, dim=-1))
         if self.running_return is None: self.running_return = mean_return
         else: self.running_return = 0.99*self.running_return + 0.01*mean_return
+
+        # Bookkeeping.
+        self.train_history["mean_return"].append(mean_return)
+        self.train_history["running_return"].append(self.running_return)
 
         if verbose:
             probs = F.softmax(logits, dim=-1)
