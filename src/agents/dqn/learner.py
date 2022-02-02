@@ -51,11 +51,22 @@ class DQNLearner(Learner):
                 rewards.append(experience.reward)
                 states1.append(experience.next)
                 done.append(experience.done)
-            states0 = torch.FloatTensor(states0).to(self.device)
-            states1 = torch.FloatTensor(states1).to(self.device)
-            actions = torch.LongTensor(actions).to(self.device).reshape(-1, 1)
-            rewards = torch.FloatTensor(rewards).to(self.device)
+            # Pytorch raises the following UserWarning if initializing
+            # tensors directly from Python lists:
+            # ===================================
+            # UserWarning: Creating a tensor from a list of numpy.ndarrays
+            # is extremely slow.
+            # Please consider converting the list to a single numpy.ndarray
+            # with numpy.array() before converting to a tensor
+            states0 = np.array(states0, dtype=np.float32)
+            states1 = np.array(states1, dtype=np.float32)
+            actions = np.array(actions, dtype=np.int32)
+            rewards = np.array(rewards, dtype=np.float32)
             done = np.array(done, dtype=bool)
+            states0 = torch.from_numpy(states0).to(self.device)
+            states1 = torch.from_numpy(states1).to(self.device)
+            actions = torch.from_numpy(actions).to(self.device).reshape(-1, 1)
+            rewards = torch.from_numpy(rewards).to(self.device)
             # Regression
             argmax_Q, _ = torch.max(self._Q_network(states1), dim=1)
             qvalues = torch.gather(self._Q_target_net(states0), 1, actions).squeeze()
