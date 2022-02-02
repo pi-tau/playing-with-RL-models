@@ -59,9 +59,9 @@ class FeedForwardActor(core.Actor):
 
 class DQNActor(core.Actor):
 
-    def __init__(self, Qnetwork, buffer_client, epsilon=1.0, cache_limit=1):
+    def __init__(self, Qnetwork, buffer_client, cache_limit=1):
         self._Qnetwork = Qnetwork.to(torch.device('cpu'))
-        self.epsilon = epsilon
+        self.epsilon = 0.0
         self.buffer_client = buffer_client
         # self._buffer_cache = []
         # self._cache_limit = cache_limit

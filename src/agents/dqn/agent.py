@@ -6,7 +6,8 @@ from src.infrastructure.logging import NullLogger
 class DQNAgent(Agent):
 
     def __init__(self, actor, learner, buffer,
-                 min_experiences, Q_update_every, logger=None):
+                 min_experiences, Q_update_every,
+                 initial_eps, final_eps, eps_decay_range, logger=None):
         """
         Deep Q-Learning Agent with Experience Replay buffer.
 
@@ -25,7 +26,11 @@ class DQNAgent(Agent):
         """
         # `actor`, `learner` and `buffer` arguments are binded to `self` here
         super().__init__(actor, learner, buffer)
+        self._actor.epsilon = initial_eps
         self.min_experiences = min_experiences
+        self.initial_eps = initial_eps
+        self.final_eps = final_eps
+        self.eps_decay_range = eps_decay_range
         self.Q_update_every = Q_update_every
         self.n = 0  # counts new observations since last self.update() call
         self.total_experiences = 0
@@ -49,10 +54,11 @@ class DQNAgent(Agent):
         # Update Q-network parameters
         self._learner.step(self._buffer)
         self._actor.Qnetwork = self._learner.Qnetwork
-        # Update policy epsilon
-        x = np.round(self.total_experiences / 1_000_000, 1)
-        self._actor.epsilon = 1.0 - min(0.9, x)
         self.n = 0
+        # Update policy epsilon
+        alpha = min(1.0, self.total_experiences / self.eps_decay_range)
+        r = self.initial_eps - self.final_eps
+        self._actor.epsilon = self.final_eps + alpha * r
         # Log Q-network stats
         self._logger.add_mean_Q(self)
         self._logger.add_buffer_capacity(self, len(self._buffer))

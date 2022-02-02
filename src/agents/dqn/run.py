@@ -27,22 +27,24 @@ _STARTUP_PLATE_ = \
     ---------------------------------------------------------------------------
     Deep Q-Learning Agent started at {starttime} with:
 
-    Device:                         {device}
-    Game:                           {game}
-    Skip Frames:                    {skip_frames}
-    Stack Frames:                   {stack_frames}
-    Number of Episodes:             {n_episodes}
-    Max Steps per Episode:          {max_steps}
-    Batch Size:                     {batch_size}
-    Learning Rate:                  {learning_rate}
-    Policy Epsilon:                 {epsilon}
-    Discount Factor:                {discount}
-    Fit Q Network every:            {Q_update_every} experiences
-    Update Target Q Network every:  {target_update_every} Q regressions
-    Q Network Regressions:          {Q_regressions}
-    Replay Buffer Capacity:         {capacity}
-    Minimum Number of Experiences:  {min_experiences}
-    Output Directory:               {output_dir}
+    Device:                             {device}
+    Game:                               {game}
+    Skip Frames:                        {skip_frames}
+    Stack Frames:                       {stack_frames}
+    Number of Episodes:                 {n_episodes}
+    Max Steps per Episode:              {max_steps}
+    Batch Size:                         {batch_size}
+    Learning Rate:                      {learning_rate}
+    Initial Policy Epsilon:             {initial_eps}
+    Final Policy Epsilon:               {final_eps}
+    Epsilon Decay Range:                {eps_decay_range}
+    Discount Factor:                    {discount}
+    Fit Q Network every:                {Q_update_every} experiences
+    Update Target Q Network every:      {target_update_every} Q-regressions
+    Q Network Regressions:              {Q_regressions}
+    Replay Buffer Capacity:             {capacity}
+    Minimum Number of Experiences:      {min_experiences}
+    Output Directory:                   {output_dir}
     ===========================================================================
 
     """
@@ -57,7 +59,9 @@ if __name__ == '__main__':
     parser.add_argument('--max_steps', action='store', type=int, default=10_000)
     parser.add_argument('--batch_size', action='store', type=int, default=128)
     parser.add_argument('--lr', type=float, action='store', default=1e-3)
-    parser.add_argument('--epsilon', type=float, action='store', default=1.0)
+    parser.add_argument('--initial_eps', type=float, action='store', default=1.0)
+    parser.add_argument('--final_eps', type=float, action='store', default=0.05)
+    parser.add_argument('--eps_decay_range', type=int, action='store', default=100_000)
     parser.add_argument('--Q_update_every', action='store', type=int, default=1000)
     parser.add_argument('--Q_target_update_every', action='store', type=int, default=2000)
     parser.add_argument('--Q_regressions', action='store', type=int, default=10)
@@ -78,9 +82,11 @@ if __name__ == '__main__':
     LEARNING_RATE = args.lr
     LR_DECAY = 1.0
     L2_REGULARIZATION = 1e-3
-    CLIP_GRAD = True
-    EPSILON = args.epsilon
-    DISCOUNT = 0.9
+    CLIP_GRAD = 10.0
+    INITIAL_EPS = args.initial_eps
+    FINAL_EPS = args.final_eps
+    EPS_DECAY_RANGE = args.eps_decay_range
+    DISCOUNT = 0.95
     Q_UPDATE_EVERY = args.Q_update_every
     TARGET_UPDATE_EVERY = args.Q_target_update_every
     Q_REGRESSIONS = args.Q_regressions
@@ -116,7 +122,7 @@ if __name__ == '__main__':
 
     # Initialize Deep Q-Learning agent
     buffer = ReplayBuffer(capacity=CAPACITY)
-    actor = DQNActor(Q_network, buffer, epsilon=EPSILON)
+    actor = DQNActor(Q_network, buffer)
     learner = DQNLearner(Q_network, discount=DISCOUNT, device=DEVICE,
                          Q_regressions=Q_REGRESSIONS,
                          target_update_every=TARGET_UPDATE_EVERY,
@@ -124,7 +130,8 @@ if __name__ == '__main__':
                          lr_decay=LR_DECAY, reg=L2_REGULARIZATION,
                          clip_grad=CLIP_GRAD)
     agent = DQNAgent(actor, learner, buffer, min_experiences=MIN_EXPERIENCES,
-                     Q_update_every=Q_UPDATE_EVERY,
+                     Q_update_every=Q_UPDATE_EVERY, initial_eps=INITIAL_EPS,
+                     final_eps=FINAL_EPS, eps_decay_range=EPS_DECAY_RANGE,
                      logger=DQNAgentLogger(OUTPUT_DIR))
 
     plate = _STARTUP_PLATE_.format(
@@ -139,7 +146,9 @@ if __name__ == '__main__':
         max_steps=MAX_STEPS,
         batch_size=BATCH_SIZE,
         learning_rate=LEARNING_RATE,
-        epsilon=EPSILON,
+        initial_eps=INITIAL_EPS,
+        final_eps=FINAL_EPS,
+        eps_decay_range=EPS_DECAY_RANGE,
         discount=DISCOUNT,
         Q_update_every=Q_UPDATE_EVERY,
         target_update_every=TARGET_UPDATE_EVERY,
