@@ -72,7 +72,7 @@ class DQNActor(core.Actor):
     def Qnetwork(self):
         return self._Qnetwork
 
-    @property.setter
+    @Qnetwork.setter
     def Qnetwork(self, Qnet):
         self._Qnetwork = Qnet.to(torch.device('cpu'))
 
