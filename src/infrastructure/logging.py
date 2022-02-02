@@ -28,11 +28,11 @@ class DQNAgentLogger:
 
     def add_mean_Q(self, agent):
         qvalues = []
-        net = self._agent._learner.Qnetwork
+        net = agent._learner.Qnetwork
         device = net.device
         with torch.no_grad():
             for _ in range(10):
-                batch = self._agent._buffer.draw(128)
+                batch = agent._buffer.draw(128)
                 states = torch.FloatTensor([x.current for x in batch]).to(device)
                 Qvals = net(states)
                 qvalues.append(Qvals.cpu().numpy())
