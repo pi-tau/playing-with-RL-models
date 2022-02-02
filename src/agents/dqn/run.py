@@ -1,6 +1,5 @@
 # TODO
 # =============================================================================
-# * Run experiments (shell scripts)
 # * Enhance features
 # * Asynchronous actors
 # -----------------------------------------------------------------------------
@@ -33,7 +32,6 @@ _STARTUP_PLATE_ = \
     Skip Frames:                    {skip_frames}
     Stack Frames:                   {stack_frames}
     Number of Episodes:             {n_episodes}
-    Total Experiences:              {n_experiences}
     Max Steps per Episode:          {max_steps}
     Batch Size:                     {batch_size}
     Learning Rate:                  {learning_rate}
@@ -54,7 +52,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--device', choices=['cpu', 'cuda'], type=str, default='cpu')
     parser.add_argument('--game', action='store', type=str, default='MsPacman-v4')
-    parser.add_argument('--experiences', action='store', type=int, default=100_000)
+    parser.add_argument('--episodes', action='store', type=int, default=10_000)
+    # parser.add_argument('--experiences', action='store', type=int, default=100_000)
     parser.add_argument('--max_steps', action='store', type=int, default=10_000)
     parser.add_argument('--batch_size', action='store', type=int, default=128)
     parser.add_argument('--lr', type=float, action='store', default=1e-3)
@@ -72,8 +71,8 @@ if __name__ == '__main__':
     GAME = args.game
     SKIP_FRAMES = 4
     STACK_FRAMES = 4
-    NUM_EPSIODES = int(args.experiences / args.max_steps)
-    NUM_EXPERIENCES = args.experiences
+    NUM_EPSIODES = args.episodes # int(args.experiences / args.max_steps)
+    # NUM_EXPERIENCES = args.experiences
     MAX_STEPS = args.max_steps
     BATCH_SIZE = args.batch_size
     LEARNING_RATE = args.lr
@@ -135,7 +134,8 @@ if __name__ == '__main__':
         skip_frames=SKIP_FRAMES,
         stack_frames=STACK_FRAMES,
         n_episodes=NUM_EPSIODES,
-        n_experiences=NUM_EXPERIENCES,
+        # n_experiences=NUM_EXPERIENCES,
+        episodes=NUM_EPSIODES,
         max_steps=MAX_STEPS,
         batch_size=BATCH_SIZE,
         learning_rate=LEARNING_RATE,

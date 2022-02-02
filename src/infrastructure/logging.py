@@ -27,6 +27,7 @@ class DQNAgentLogger:
         self._episode_returns = []
         self._episode_lengths = []
         self._experience_capacity = []
+        self._total_experiences = 0
 
     def add_mean_Q(self, agent):
         qvalues = []
@@ -50,8 +51,12 @@ class DQNAgentLogger:
 
     def add_episode_length(self, agent, L):
         self._episode_lengths.append(L)
-        filename = os.path.join(self.output_dir, 'episode-lengths.pdf')
-        self.plot_line(filename, self._episode_lengths)
+        self._total_experiences += L
+        l_filename = os.path.join(self.output_dir, 'episode-lengths.pdf')
+        e_filename = os.path.join(self.output_dir, 'total_experiences.txt')
+        self.plot_line(l_filename, self._episode_lengths)
+        with open(e_filename, mode='wa') as f:
+            f.writelines([f'Total Experiences: {self._total_experiences}\n'])
 
     def add_buffer_capacity(self, agent, capacity):
         self._experience_capacity.append(capacity)
