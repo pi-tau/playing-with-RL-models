@@ -11,7 +11,7 @@ A `TimeStep` holds a an `observation` (np.Array), and associated `reward`, `done
 TimeStep = namedtuple('TimeStep', ['observation', 'reward', 'done', 'info'])
 
 ReplayExperience = namedtuple('ReplayExperience',
-                               ['current', 'action', 'reward', 'next'])
+                               ['current', 'action', 'reward', 'next', 'done'])
 
 
 class Environment(abc.ABC):
