@@ -60,13 +60,21 @@ class FeedForwardActor(core.Actor):
 class DQNActor(core.Actor):
 
     def __init__(self, Qnetwork, buffer_client, epsilon=1.0, cache_limit=1):
-        self.Qnetwork = Qnetwork
+        self._Qnetwork = Qnetwork.to(torch.device('cpu'))
         self.epsilon = epsilon
         self.buffer_client = buffer_client
         # self._buffer_cache = []
         # self._cache_limit = cache_limit
         self._last_timestep = None
         self._return = 0
+
+    @property
+    def Qnetwork(self):
+        return self._Qnetwork
+
+    @property.setter
+    def Qnetwork(self, Qnet):
+        self._Qnetwork = Qnet.to(torch.device('cpu'))
 
     def select_action(self, observation, legal):
         observation = np.expand_dims(observation, 0)
