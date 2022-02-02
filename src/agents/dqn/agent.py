@@ -38,6 +38,7 @@ class DQNAgent(Agent):
         self.total_experiences += 1
         if is_last:
             self._logger.add_return(self, self._actor._return)
+            self._logger.add_episode_length(self, self._actor._steps)
 
     def update(self):
         """ Updates Q-function parameters and the epsilon policy parameter. """
@@ -54,4 +55,5 @@ class DQNAgent(Agent):
         self.n = 0
         # Log Q-network stats
         self._logger.add_mean_Q(self)
+        self._logger.add_buffer_capacity(self, len(self._buffer))
         return True

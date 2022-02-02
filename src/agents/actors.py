@@ -67,6 +67,7 @@ class DQNActor(core.Actor):
         # self._cache_limit = cache_limit
         self._last_timestep = None
         self._return = 0
+        self._steps = 0
 
     @property
     def Qnetwork(self):
@@ -96,6 +97,7 @@ class DQNActor(core.Actor):
     def observe_first(self, timestep):
         self._last_timestep = timestep
         self._return = timestep.reward
+        self._steps = 0
 
     def observe(self, action, timestep, is_last=False):
         replay_experience = DQNActor.make_replay_experience(
@@ -106,6 +108,7 @@ class DQNActor(core.Actor):
         self.buffer_client.add(replay_experience)
         self._last_timestep = timestep
         self._return += timestep.reward
+        self._steps += 1
         # self._buffer_cache.append(replay_experience)
         # if len(self._buffer_cache) >= self._cache_limit:
         #     self.buffer_client.add(self._buffer_cache)
