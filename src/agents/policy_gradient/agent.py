@@ -12,6 +12,12 @@ class PGAgent(Agent):
     The agent interacts with the environment generating full episodes of experiences via
     a behavior policy. The episodes are stored in an `EpisodeBuffer` object and passed to
     the learner to update the policy network.
+
+    Attributes:
+        actor (core.Actor): An actor object used to interact with an environment.
+        learner (core.Learner): A learner object used for updating the policy of the actor.
+        buffer (core.Buffer): A buffer object used for storing observations made from the
+            actor.
     """
 
     def __init__(self, policy_network, buffer, use_reward_to_go=True, discount=0.9,
@@ -45,7 +51,7 @@ class PGAgent(Agent):
             "reg"               : reg,
             "clip_grad"         : clip_grad,
         }
-        # The policy for the agent uses the scores returned by the network to compute a
+        # The policy for the actor uses the scores returned by the network to compute a
         # boltzmann probability distribution over the actions from the action space.
         def policy(observation, legal):
             logits = policy_network(observation)
@@ -57,13 +63,14 @@ class PGAgent(Agent):
             return probs
 
         device = policy_network.device
-        self._actor = FeedForwardActor(policy, buffer, device)
-        self._learner = PGLearner(policy_network, config, stdout)
-        self._buffer = buffer
+        self.actor = FeedForwardActor(policy, buffer, device)
+        self.learner = PGLearner(policy_network, config, stdout)
+        self.buffer = buffer
 
         # Prefill the buffer with `batch_size` different episodes simulated using the current
         # policy and only then perform one-update step.
-        self._min_observations = batch_size
-        self._observations_per_step = None
+        self.min_observations = batch_size
+        self.observations_per_step = None
+        self._num_observations = 0
 
 #

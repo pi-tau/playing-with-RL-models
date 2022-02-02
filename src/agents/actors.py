@@ -9,18 +9,18 @@ class FeedForwardActor(core.Actor):
     and outputs non-batched actions. It also allows adding experiences to a buffer.
 
     Attributes:
-        _policy (func): A mapping that takes an observation from the environment and
+        policy (func): A mapping that takes an observation from the environment and
             outputs a probability distribution over the action space.
-        _buffer_client (core.Buffer): A client used to pass observations to the buffer.
-        _device (torch.device): Determine which device to place observations upon, CPU or GPU.
+        buffer_client (core.Buffer): A client used to pass observations to the buffer.
+        device (torch.device): Determine which device to place observations upon, CPU or GPU.
 
     # TODO: The actor uses a client in order to add data asynchronously.
     """
 
     def __init__(self, policy, buffer_client, device):
-        self._policy = policy
-        self._buffer_client = buffer_client   # allows to send data to the replay buffer
-        self._device = device
+        self.policy = policy
+        self.buffer_client = buffer_client   # allows to send data to the replay buffer
+        self.device = device
 
     @torch.no_grad()
     def select_action(self, observation, legal=None):
@@ -39,20 +39,20 @@ class FeedForwardActor(core.Actor):
         """
         # Convert the observations to torch tensors and move them to device.
         observation = torch.from_numpy(observation).float()
-        observation = observation.to(self._device)
+        observation = observation.to(self.device)
 
         # Use the policy to compute a probability distribution over the actions and select
         # the next action probabilistically.
-        probs = self._policy(observation, legal)
+        probs = self.policy(observation, legal)
         action = torch.multinomial(probs, 1).squeeze(dim=-1).item()
         return action
 
     def observe_first(self, timestep):
         """Observe a time-step from the agent-environment interaction loop."""
-        self._buffer_client.add_first(timestep)
+        self.buffer_client.add_first(timestep)
 
     def observe(self, action, timestep, is_last=False):
         """Observe a time-step from the agent-environment interaction loop."""
-        self._buffer_client.add(action, timestep, is_last)
+        self.buffer_client.add(action, timestep, is_last)
 
 #

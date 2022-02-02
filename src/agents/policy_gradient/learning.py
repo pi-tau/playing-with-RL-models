@@ -15,15 +15,15 @@ class PGLearner(core.Learner):
     This is an offline and on-policy learning algorithm.
 
     Attributes:
-        _policy_network (Network): The agent behavior policy to be optimized.
-        _config (dict): A dictionary with optimization parameters (learning rate, etc.).
-        _optimizer (torch.optim): A torch optimizer object used to perform gradient
+        policy_network (Network): The agent behavior policy to be optimized.
+        config (dict): A dictionary with optimization parameters (learning rate, etc.).
+        optimizer (torch.optim): A torch optimizer object used to perform gradient
             descent updates. The learner uses the Adam optimizer.
-        _scheduler (torch.optim.lr_scheduler): A torch scheduler object used to schedule
+        scheduler (torch.optim.lr_scheduler): A torch scheduler object used to schedule
             the value of the learning rate.
-        _running_return (float): Keeping track of the running return from each episode
+        running_return (float): Keeping track of the running return from each episode
             during training.
-        _stdout (file): File object (stream) used for standard output of logging
+        stdout (file): File object (stream) used for standard output of logging
             information. Default value is `sys.stdout`.
     """
 
@@ -44,17 +44,17 @@ class PGLearner(core.Learner):
             stdout (file, optional): File object (stream) used for standard output of
                 logging information. Default value is `sys.stdout`.
         """
-        self._policy_network = policy_network
-        self._config = config
-        self._optimizer = torch.optim.Adam(
-            self._policy_network.parameters(),
+        self.policy_network = policy_network
+        self.config = config
+        self.optimizer = torch.optim.Adam(
+            self.policy_network.parameters(),
             lr=config["learning_rate"],
             weight_decay=config["reg"],
         )
-        self._scheduler = torch.optim.lr_scheduler.StepLR(
-            self._optimizer, step_size=config["decay_steps"], gamma=config["lr_decay"])
-        self._running_return = None
-        self._stdout = stdout
+        self.scheduler = torch.optim.lr_scheduler.StepLR(
+            self.optimizer, step_size=config["decay_steps"], gamma=config["lr_decay"])
+        self.running_return = None
+        self.stdout = stdout
 
     def step(self, buffer, verbose=True):
         """Perform a single policy gradient update step.
@@ -66,46 +66,44 @@ class PGLearner(core.Learner):
             buffer (core.Buffer): A buffer object used to store episodes of experiences.
             verbose (bool, optional): If True, printout logging information. Default value is True.
         """
-        stdout = self._stdout
-        device = self._policy_network.device
-        discount = self._config["discount"]
-        clip_grad = self._config["clip_grad"]
+        stdout = self.stdout
+        device = self.policy_network.device
+        discount = self.config["discount"]
+        clip_grad = self.config["clip_grad"]
         eps = torch.finfo(torch.float32).eps
 
         # Fetch trajectories from the buffer.
         observations, actions, rewards, masks = buffer.draw(device=device)
 
-        # Compute discounted baselined returns, or compute discounted returns-to-go.
-        if self._config["use_reward_to_go"]:
-            q_values = self._discounted_cumulative_returns(rewards, discount)
-            # Baseline the discounted returns.
-            # q_values -= torch.sum(q_values, dim=0) / torch.maximum(
-            #     torch.sum(masks, dim=0), torch.Tensor([1.]).to(device))
-            # Normalize the discounted returns.
-            # q_values = (q_values - torch.mean(q_values)) / (torch.std(q_values) + eps)
+        # Compute discounted baselined returns, or compute discounted cumulative.
+        if self.config["use_reward_to_go"]:
+            q_values = self._discounted_cumulative_returns(rewards, masks, discount)
         else:
             q_values = self._discounted_baselined_returns(rewards, discount)
 
+        # Normalize the discounted returns.
+        q_values = (q_values - torch.mean(q_values)) / (torch.std(q_values) + eps)
+
         # Compute the loss.
-        logits = self._policy_network(observations)
+        logits = self.policy_network(observations)
         nll = F.cross_entropy(logits.permute(0,2,1), actions, reduction="none")
         weighted_nll = torch.mul(masks * nll, q_values)
         loss = torch.mean(torch.sum(weighted_nll, dim=1))
 
         # Perform backward pass.
-        self._optimizer.zero_grad()
+        self.optimizer.zero_grad()
         loss.backward()
         total_norm = torch.norm(
-            torch.stack([torch.norm(p.grad) for p in self._policy_network.parameters()]))
+            torch.stack([torch.norm(p.grad) for p in self.policy_network.parameters()]))
         if clip_grad is not None:
-            torch.nn.utils.clip_grad_norm_(self._policy_network.parameters(), clip_grad)
-        self._optimizer.step()
-        self._scheduler.step()
+            torch.nn.utils.clip_grad_norm_(self.policy_network.parameters(), clip_grad)
+        self.optimizer.step()
+        self.scheduler.step()
 
         # Keep track of the running return.
         mean_return = torch.mean(torch.sum(rewards, dim=-1))
-        if self._running_return is None: self._running_return = mean_return
-        else: self._running_return = 0.99*self._running_return + 0.01*mean_return
+        if self.running_return is None: self.running_return = mean_return
+        else: self.running_return = 0.99*self.running_return + 0.01*mean_return
 
         if verbose:
             probs = F.softmax(logits, dim=-1)
@@ -120,10 +118,10 @@ class PGLearner(core.Learner):
             tqdm.write(f"Grad norm:          {total_norm: .5f}", file=stdout)
             tqdm.write(f"Avg policy entropy: {avg_policy_ent: .3f}", file=stdout)
             tqdm.write(f"Total num of steps: {torch.sum(masks): .0f}", file=stdout)
-            tqdm.write(f"Running return:     {self._running_return:.4f}", file=stdout)
+            tqdm.write(f"Running return:     {self.running_return:.4f}", file=stdout)
 
     @torch.no_grad()
-    def _discounted_cumulative_returns(self, rewards, discount):
+    def _discounted_cumulative_returns(self, rewards, masks=True, discount=1.0):
         """Compute the discounted cumulative reward-to-go at every time-step `t`.
 
         "Don't let the past destract you"
@@ -153,6 +151,8 @@ class PGLearner(core.Learner):
         Args:
             rewards (torch.Tensor): Tensor of shape (episodes, steps), containing the
                 rewards obtained at every step.
+            masks (torch.Tensor): A tensor of shape (episodes, steps), of boolean values,
+                that mask out the part of an episode after it has finished.
             discount (float): Discount factor for future rewards.
 
         Returns:
@@ -160,10 +160,11 @@ class PGLearner(core.Learner):
                 the discounted cumulative returns for each time-step of every episode.
         """
         _, steps = rewards.shape
+        device = self.policy_network.device
         toeplitz = [[discount ** j for j in range(i,-1,-1)] + [0]*(steps-i-1) for i in range(steps)]
-        toeplitz = torch.FloatTensor(toeplitz).to(self._policy_network.device)
+        toeplitz = torch.FloatTensor(toeplitz).to(device)
         discounted_returns = torch.matmul(rewards, toeplitz)
-        return discounted_returns
+        return discounted_returns * masks
 
     @torch.no_grad()
     def _discounted_baselined_returns(self, rewards, discount):
@@ -187,7 +188,7 @@ class PGLearner(core.Learner):
                 discounted baselined return for every episode.
         """
         _, steps = rewards.shape
-        device = self._policy_network.device
+        device = self.policy_network.device
         discounts = torch.FloatTensor([discount ** i for i in range(steps)]).to(device)
         discounted_returns = torch.sum(torch.mul(rewards, discounts), dim=-1, keepdim=True)
         discounted_returns -= torch.mean(torch.sum(rewards, dim=-1))

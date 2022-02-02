@@ -7,31 +7,33 @@ from src import core
 class EpisodeBuffer(core.Buffer):
     """Episode buffer.
     A buffer object used to store trajectories of entire episodes.
+    This type of buffer is used only with offline on-policy learning algorithms. The buffer
+    waits for the episode to finish before it stores the observations made by the actor.
+    And also all observations drawn from the buffer are flushed.
 
     Attributes:
-        _observations (list[list[np.Array]]): A list of lists of numpy arrays. Each nested
+        observations (list[list[np.Array]]): A list of lists of numpy arrays. Each nested
             list stores the observed states during a single episode.
-        _actions (list[list[int]]): A list of lists of ints. Each nested list stores the
+        actions (list[list[int]]): A list of lists of ints. Each nested list stores the
             actions taken by the agent during a single episode.
-        _rewards (list[list[float]]): A list of lists of floats. Each nested list stores
+        rewards (list[list[float]]): A list of lists of floats. Each nested list stores
             the rewards obtained by the agent during a single episode.
-        _done (list[list[bool]]):A list of lists of booleans. Each nested list stores
+        done (list[list[bool]]):A list of lists of booleans. Each nested list stores
             boolean flags indicating wether the episode has finished.
-        _current_observations (list[np.Array]): A list of numpy arrays storing the
-            observations from the current episode.
-        _current_actions (list[int]): A list of ints storing the actions taken by the
-            agent during the current episode.
-        _current_rewards (list[float]): A list of floats storing the rewards obtained by
-            the agent during the current episode.
-        _current_done (list[bool]): A list of booleans indicating whether the current
-            episode has finished.
     """
 
     def __init__(self):
-        self._observations = []
-        self._actions = []
-        self._rewards = []
-        self._done = []
+        # Lists storing the observations from all episodes.
+        self.observations = []
+        self.actions = []
+        self.rewards = []
+        self.done = []
+
+        # Lists storing the observations from the current episode.
+        self._current_observations = None
+        self._current_actions = None
+        self._current_rewards = None
+        self._current_done = None
 
     def add_first(self, timestep):
         """Add an initial time-step to the buffer.
@@ -40,11 +42,10 @@ class EpisodeBuffer(core.Buffer):
         """
         observation, reward, done, info = timestep
 
-        self._current_observations = []
+        self._current_observations = [observation]
         self._current_actions = []
         self._current_rewards = []
         self._current_done = []
-        self._current_observations.append(observation)
 
     def add(self, action, timestep, is_last=False):
         """Add a time-step and the action selected by the agent to the buffer.
@@ -69,10 +70,10 @@ class EpisodeBuffer(core.Buffer):
         self._current_done.append(done)
 
         if is_last:
-            self._observations.append(self._current_observations[:-1])
-            self._actions.append(self._current_actions)
-            self._rewards.append(self._current_rewards)
-            self._done.append(self._current_done)
+            self.observations.append(self._current_observations[:-1])
+            self.actions.append(self._current_actions)
+            self.rewards.append(self._current_rewards)
+            self.done.append(self._current_done)
             self._current_observations = None
             self._current_actions = None
             self._current_rewards = None
@@ -94,18 +95,18 @@ class EpisodeBuffer(core.Buffer):
             actions (torch.Tensor): A tensor of shape (b, t), giving the actions selected
                 by the agent during the interaction with the environment.
             rewards (torch.Tensor): A tensor of shape (b, t), giving the rewards obtained
-                during by the agent.
-            masks (torch.Tensor): A tensor of shape (b, t), of boolean values, that masks
-                out the part of the episode after it has finished.
+                by the agent during the interaction with te environment.
+            masks (torch.Tensor): A tensor of shape (b, t), of boolean values, that mask
+                out the part of an episode after it has finished.
         """
-        max_len_episode = max(len(episode) for episode in self._observations)
+        max_len_episode = max(len(episode) for episode in self.observations)
         padded_observations = np.array([[obs for obs in episode] + [np.zeros_like(episode[-1]).tolist()
             for _ in range(max_len_episode-len(episode))]
-            for episode in self._observations])
+            for episode in self.observations])
         padded_actions = [[act for act in episode] + [0]*(max_len_episode-len(episode))
-            for episode in self._actions]
+            for episode in self.actions]
         padded_rewards = [[r for r in episode] + [0]*(max_len_episode-len(episode))
-            for episode in self._rewards]
+            for episode in self.rewards]
         observations = torch.FloatTensor(padded_observations).to(device)
         actions = torch.LongTensor(padded_actions).to(device)
         rewards = torch.FloatTensor(padded_rewards).to(device)
@@ -113,24 +114,23 @@ class EpisodeBuffer(core.Buffer):
         # if done[i] is False and done[i+1] is True, then the trajectory should be masked
         # out at and after step i+2.
         padded_done = [[d for d in episode] + [True]*(max_len_episode-len(episode))
-            for episode in self._done]
+            for episode in self.done]
         done = torch.BoolTensor(padded_done).to(device)
-        masks = ~torch.cat((done[0:1], done[1:] & done[:-1]), dim=0)
+        masks = ~torch.cat((done[0:1], done[1:] & done[:-1]), dim=0).to(device)
 
         # Drawing from the `EpisodeBuffer` deletes the drawn experiences.
-        # This type of buffer is used only with offline policy gradient agents.
         self.flush()
 
         return observations, actions, rewards, masks
 
     def flush(self):
         """Flush the buffer."""
-        self._observations.clear()
-        self._actions.clear()
-        self._rewards.clear()
-        self._done.clear()
+        self.observations.clear()
+        self.actions.clear()
+        self.rewards.clear()
+        self.done.clear()
 
     def __len__(self):
-        return len(self._observations)
+        return len(self.observations)
 
 #

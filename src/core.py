@@ -1,8 +1,6 @@
 import abc
 from collections import namedtuple
 
-import torch
-
 
 """Returned with every call to `step` and `reset` on an environment.
 A `TimeStep` contains the data emitted by an environment at each step of interaction.

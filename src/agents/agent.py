@@ -15,33 +15,37 @@ class Agent(core.Actor):
     in order to allow the agent to take more than 1 learner step per action.
 
     Attributes:
-        _actor (core.Actor): An actor object used to interact with the environment.
-        _learner (core.Learner): A learner object used to update the policy network.
-        _buffer (core.Buffer): A buffer object used to store past experiences.
-        _min_observations (int): Number of observations the agent has to make before
+        actor (core.Actor): An actor object used to interact with the environment.
+        learner (core.Learner): A learner object used to update the policy network.
+        buffer (core.Buffer): A buffer object used to store past experiences.
+        min_observations (int): Number of observations the agent has to make before
             performing the first learning step. This variable is used to pre-fill the buffer.
-        _observations_per_step (int): Number of observations the agent has to make before
+        observations_per_step (int): Number of observations the agent has to make before
             performing one learning step.
     """
 
-    def __init__(self, actor, learner, buffer, min_observations, observations_per_step):
-        self._buffer = buffer
-        self._learner = learner
-        self._actor = actor
-        self._min_observations = min_observations
-        self._observations_per_step = observations_per_step
+    def __init__(self, actor=None, learner=None, buffer=None, min_observations=0, observations_per_step=0):
+        self.actor = actor
+        self.learner = learner
+        self.buffer = buffer
+        self.min_observations = min_observations
+        self.observations_per_step = observations_per_step
+
+        # Keep track of the number of observations made by the agent.
+        self._num_observations = 0
 
     def select_action(self, observation, illegal=None):
         """The agent selects an action by delegating to the actor."""
-        return self._actor.select_action(observation, illegal)
+        return self.actor.select_action(observation, illegal)
 
     def observe_first(self, timestep):
         """The agent observes the first time-step by delegating to the actor."""
-        self._actor.observe_first(timestep)
+        self.actor.observe_first(timestep)
 
     def observe(self, action, timestep, is_last=False):
         """The agent observes time-steps by delegating to the actor."""
-        self._actor.observe(action, timestep, is_last)
+        self._num_observations += 1
+        self.actor.observe(action, timestep, is_last)
 
     def update(self):
         """Update the policy network by calling the `core.Learner.step()` method multiple
@@ -50,17 +54,17 @@ class Agent(core.Actor):
         """
         num_steps = self._calc_num_steps()
         for _ in range(num_steps):
-            self._learner.step(self._buffer)
+            self.learner.step(self.buffer)
+            self._num_observations = 0
         # TODO: Asynchronous update of policy network weights.
         # if num_steps > 0:
-        #     self._actor.update()
+        #     self.actor.update()
 
     def _calc_num_steps(self):
-        num_observations = len(self._buffer)
-        if num_observations < self._min_observations:
+        if len(self.buffer) < self.min_observations:
             return 0
-        if self._observations_per_step == None:
+        if self.observations_per_step == None:
             return 1
-        return int(num_observations / self._observations_per_step)
+        return int(self._num_observations / self.observations_per_step)
 
 #

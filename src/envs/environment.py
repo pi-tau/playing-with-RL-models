@@ -15,17 +15,17 @@ class Environment(core.Environment):
     """An RL environment of the game of Pacman.
 
     Attributes:
-        _layout (pacman.Layout): A Pacman game layout object.
-        _num_ghosts (int): The number of ghosts agents.
-        _ghosts (list): A list of random ghost agents.
-        _gameState (pacman.GameState): A GameState object representing the Pacman game.
-        _shape (tuple(int)): A tuple of ints giving the shape of the numpy array
+        layout (pacman.Layout): A Pacman game layout object.
+        num_ghosts (int): The number of ghosts agents.
+        ghosts (list): A list of random ghost agents.
+        gameState (pacman.GameState): A GameState object representing the Pacman game.
+        shape (tuple(int)): A tuple of ints giving the shape of the numpy array
             representing the observable state of the game.
-        _idxToAction (dict): A mapping from action index to game action.
-        _actToIdx (dict): A reverse mapping from game action to action index.
-        _num_actions (int): The total number of possible actions in the game.
-        _display (pacman.PacmanGraphics): Graphical display for the Pacman game.
-        _graphics (bool): A boolean flag indicating whether the environment should display
+        idxToAction (dict): A mapping from action index to game action.
+        actToIdx (dict): A reverse mapping from game action to action index.
+        num_actions (int): The total number of possible actions in the game.
+        display (pacman.PacmanGraphics): Graphical display for the Pacman game.
+        graphics (bool): A boolean flag indicating whether the environment should display
             a graphical interface for the game.
     """
 
@@ -39,24 +39,24 @@ class Environment(core.Environment):
                 Default value is False.
         """
         # Initialize the game layout.
-        self._layout = getLayout(layout)
+        self.layout = getLayout(layout)
 
         # Initialize ghosts.
-        self._num_ghosts = min(num_ghosts, self._layout.getNumGhosts())
-        self._ghosts = [RandomGhost(i+1) for i in range(self._num_ghosts)]
+        self.num_ghosts = min(num_ghosts, self.layout.getNumGhosts())
+        self.ghosts = [RandomGhost(i+1) for i in range(self.num_ghosts)]
 
         # Initialize the game state.
-        self._gameState = GameState()
-        self._gameState.initialize(self._layout, self._num_ghosts)
-        self._shape = self._observe(self._gameState).shape
+        self.gameState = GameState()
+        self.gameState.initialize(self.layout, self.num_ghosts)
+        self._shape = self._observe(self.gameState).shape
 
         # Initialize action-to-idx mappings.
-        self._idxToAction = dict(enumerate(self._gameState.getAllActions()))
-        self._idxToAction[len(self._idxToAction)] = "Stop"
-        self._actToIdx = {v:k for k, v in self._idxToAction.items()}
-        self._num_actions = len(self._idxToAction)
+        self.idxToAction = dict(enumerate(self.gameState.getAllActions()))
+        self.idxToAction[len(self.idxToAction)] = "Stop"
+        self.actToIdx = {v:k for k, v in self.idxToAction.items()}
+        self._num_actions = len(self.idxToAction)
 
-        self._display = PacmanGraphics(zoom=1.0, frameTime=0.1)
+        self.display = PacmanGraphics(zoom=1.0, frameTime=0.1)
         self._graphics = graphics
 
         self.reset()
@@ -72,17 +72,17 @@ class Environment(core.Environment):
                 done (bool): False.
                 info (dict}: {}.
         """
-        self._gameState = GameState()
-        self._gameState.initialize(self._layout, self._num_ghosts)
+        self.gameState = GameState()
+        self.gameState.initialize(self.layout, self.num_ghosts)
 
         if self._graphics:
-            self._display.initialize(self._gameState.data)
+            self.display.initialize(self.gameState.data)
 
-        return core.TimeStep(self._observe(self._gameState), 0, False, {})
+        return core.TimeStep(self._observe(self.gameState), 0, False, {})
 
     def actions(self):
         """Return a list with the ids of the legal actions for the current state."""
-        return list(map(lambda x: self._actToIdx[x], self._gameState.getLegalPacmanActions()))
+        return list(map(lambda x: self.actToIdx[x], self.gameState.getLegalPacmanActions()))
 
     def num_actions(self):
         """The total number of possible actions in the environment."""
@@ -96,11 +96,11 @@ class Environment(core.Environment):
         """Set a boolean flag whether a graphical interface should be displayed."""
         self._graphics = graphics
         if not graphics:
-            self._display.finish()
+            self.display.finish()
 
     def close(self):
         """Close the graphics display."""
-        self._display.finish()
+        self.display.finish()
 
     def step(self, actID):
         """This method performs one full ply by executing one move from every player
@@ -123,21 +123,21 @@ class Environment(core.Environment):
         """
         # Create a dummy agent taking the given action.
         pacman_dummy_agent = lambda: None
-        pacman_dummy_agent.getAction = lambda x: self._idxToAction[actID]
+        pacman_dummy_agent.getAction = lambda x: self.idxToAction[actID]
 
         # Loop over all agents (pacman and ghosts) to form a single ply.
-        agents = [pacman_dummy_agent] + self._ghosts
-        next_state = self._gameState
+        agents = [pacman_dummy_agent] + self.ghosts
+        next_state = self.gameState
         for idx, ag in enumerate(agents):
                 next_state = next_state.generateSuccessor(idx, ag.getAction(next_state))
                 if self._graphics:
-                    self._display.update(next_state.data)
-                reward = next_state.getScore() - self._gameState.getScore()
+                    self.display.update(next_state.data)
+                reward = next_state.getScore() - self.gameState.getScore()
                 done = (next_state.isWin() or next_state.isLose())
                 if done: break
 
         info = {}
-        self._gameState = next_state
+        self.gameState = next_state
         return core.TimeStep(self._observe(next_state), reward, done, info)
 
     def _observe(self, gameState):
@@ -208,8 +208,8 @@ class Environment(core.Environment):
         scared_times = [g.scaredTimer for g in ghosts]
         observable.extend(scared_times)
 
-        # # Count the number of food pallets left.
-        # observable.append(food.count())
+        # Count the number of food pallets left.
+        observable.append(food.count())
 
         # Count the number of active ghosts one step away:
                     #      East      West     North     South
