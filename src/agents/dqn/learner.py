@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 import torch.nn
+import time
 from src.core import Learner
 
 
@@ -40,6 +41,7 @@ class DQNLearner(Learner):
             l2_loss = 0.5 * (inputs - target) ** 2
             return torch.mean(torch.where(abs_diff < delta, l2_loss, l1_loss))
 
+        tic = time.time()
         for _ in range(self.Q_regressions):
             # Sampling
             batch = buffer.draw(self.batch_size)
@@ -83,10 +85,11 @@ class DQNLearner(Learner):
                 )
             self.optimizer.step()
             self.scheduler.step()
-
+        toc = time.time()
+        print(f'Last Q-regression took {toc-tic} seconds.')
         # Update Target network maybe
         self.n += 1
         if self.n >= self.target_update_every:
-            self._Q_target_net = self.Qnetwork
+            self._Q_target_net = self.Qnetwork.to(self.device)
             self._Q_target_net.eval()
             self.n = 0
