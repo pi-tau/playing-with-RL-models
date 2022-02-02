@@ -10,7 +10,7 @@ class DQNLearner(Learner):
     def __init__(self, Qnetwork, Q_regressions, target_update_every,
                  discount=0.9,
                  device=torch.device('cpu'), batch_size=128,
-                 lr=1e-4, lr_decay=1.0, reg=0.0, clip_grad=None):
+                 lr=1e-4, lr_decay=1.0, reg=0.0, clip_grad=10):
         self._Q_network = Qnetwork.to(device)
         self._Q_target_net = Qnetwork.copy().to(device)
         self.Q_regressions = Q_regressions
@@ -28,6 +28,8 @@ class DQNLearner(Learner):
             self.optimizer, step_size=1, gamma=lr_decay
         )
         self.clip_grad = clip_grad
+        self.total_updates = 0
+        self.total_target_updates = 0
 
     @property
     def Qnetwork(self):
@@ -70,11 +72,14 @@ class DQNLearner(Learner):
             actions = torch.from_numpy(actions).to(self.device).reshape(-1, 1)
             rewards = torch.from_numpy(rewards).to(self.device)
             # Regression
-            argmax_Q, _ = torch.max(self._Q_network(states1), dim=1)
-            qvalues = torch.gather(self._Q_target_net(states0), 1, actions).squeeze()
-            TD_target = rewards + self.discount * argmax_Q
+            _, argmax_Q = torch.max(self._Q_network(states1), dim=1, keepdim=True)
+            qvalues0 = torch.gather(self._Q_target_net(states0), 1, actions).squeeze()
+            qvalues1 = torch.gather(self._Q_target_net(states1), 1, argmax_Q).squeeze()
+            TD_target = rewards + self.discount * qvalues1
             TD_target[done] = rewards[done]
-            loss = huber_loss(qvalues, TD_target)
+            # print('Q values:', torch.mean(qvalues0).detach().cpu())
+            # print('TD Target:', torch.mean(TD_target).detach().cpu())
+            loss = huber_loss(qvalues0, TD_target)
             # Backward pass
             self.optimizer.zero_grad()
             loss.backward()
@@ -85,6 +90,7 @@ class DQNLearner(Learner):
                 )
             self.optimizer.step()
             self.scheduler.step()
+            self.total_updates += 1
         toc = time.time()
         print(f'Last Q-regression took {toc-tic} seconds.')
         # Update Target network maybe
@@ -93,3 +99,4 @@ class DQNLearner(Learner):
             self._Q_target_net = self.Qnetwork.to(self.device)
             self._Q_target_net.eval()
             self.n = 0
+            self.total_target_updates += 1
