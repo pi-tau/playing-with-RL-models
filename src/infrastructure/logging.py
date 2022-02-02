@@ -55,7 +55,7 @@ class DQNAgentLogger:
         l_filename = os.path.join(self.output_dir, 'episode-lengths.pdf')
         e_filename = os.path.join(self.output_dir, 'total_experiences.txt')
         self.plot_line(l_filename, self._episode_lengths)
-        with open(e_filename, mode='wa') as f:
+        with open(e_filename, mode='a') as f:
             f.writelines([f'Total Experiences: {self._total_experiences}\n'])
 
     def add_buffer_capacity(self, agent, capacity):
