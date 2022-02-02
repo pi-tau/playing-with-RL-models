@@ -40,7 +40,7 @@ _STARTUP_PLATE_ = \
     Policy Epsilon:                 {epsilon}
     Discount Factor:                {discount}
     Fit Q Network every:            {Q_update_every} experiences
-    Update Target Q Network every:  {target_update_every} experiences
+    Update Target Q Network every:  {target_update_every} Q regressions
     Q Network Regressions:          {Q_regressions}
     Replay Buffer Capacity:         {capacity}
     Minimum Number of Experiences:  {min_experiences}
@@ -128,7 +128,7 @@ if __name__ == '__main__':
                      Q_update_every=Q_UPDATE_EVERY,
                      logger=DQNAgentLogger(OUTPUT_DIR))
 
-    print(_STARTUP_PLATE_.format(
+    plate = _STARTUP_PLATE_.format(
         starttime=datetime.datetime.now(),
         device=DEVICE,
         game=GAME,
@@ -147,7 +147,11 @@ if __name__ == '__main__':
         capacity=CAPACITY,
         min_experiences=MIN_EXPERIENCES,
         output_dir=OUTPUT_DIR
-    ))
+    )
+    print(plate)
+    with open(os.path.join(OUTPUT_DIR, 'hyperparameters.txt'), mode='w') as f:
+        print(plate, file=f)
+
     # Initialize and run the agent-environment feedback loop.
     loop = EnvironmentLoop(agent, env, should_update=True)
     tic = time.time()
