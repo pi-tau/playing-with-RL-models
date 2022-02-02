@@ -66,13 +66,16 @@ class DQNActor(core.Actor):
         # self._buffer_cache = []
         # self._cache_limit = cache_limit
         self._last_timestep = None
+        self._return = 0
 
     def select_action(self, observation, legal):
+        observation = np.expand_dims(observation, 0)
         observation = torch.from_numpy(observation).float()
         observation = observation.to(self.Qnetwork.device)
 
         with torch.no_grad():
-            qvalues = self.Qnetwork(observation).cpu().numpy()[legal]
+            qvalues = self.Qnetwork(observation).cpu().numpy().squeeze()
+            qvalues = qvalues[legal]
             argmax = np.argmax(qvalues)
         if np.random.uniform(0.0, 1.0) < self.epsilon:
             i = np.random.randint(0, len(legal))
@@ -84,6 +87,7 @@ class DQNActor(core.Actor):
 
     def observe_first(self, timestep):
         self._last_timestep = timestep
+        self._return = timestep.reward
 
     def observe(self, action, timestep, is_last=False):
         replay_experience = DQNActor.make_replay_experience(
@@ -93,26 +97,19 @@ class DQNActor(core.Actor):
         )
         self.buffer_client.add(replay_experience)
         self._last_timestep = timestep
+        self._return += timestep.reward
         # self._buffer_cache.append(replay_experience)
         # if len(self._buffer_cache) >= self._cache_limit:
         #     self.buffer_client.add(self._buffer_cache)
         #     self._buffer_cache.clear()
 
     @staticmethod
-    def make_replay_experience(timestep0, action, timestep1, kind='internal'):
-        r = 0
-        if timestep1.reward < 0:
-            r = -1
-        elif timestep1.reward > 0:
-            r = +1
-        if kind == 'internal':
-            return core.ReplayExperience(
-                timestep0.observation,    # current state
-                action,                   # action
-                r,                        # reward
-                timestep1.observation,    # next state
-                )
-        elif kind == 'frame':
-            pass
-            # TODO
+    def make_replay_experience(timestep0, action, timestep1):
+        return core.ReplayExperience(
+            timestep0.observation,    # current state
+            action,                   # action
+            timestep1.reward,         # reward
+            timestep1.observation,    # next state
+            timestep1.done            # done
+        )
 #
