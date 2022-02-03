@@ -72,13 +72,14 @@ class DQNLearner(Learner):
             actions = torch.from_numpy(actions).to(self.device).reshape(-1, 1)
             rewards = torch.from_numpy(rewards).to(self.device)
             # Regression
-            _, argmax_Q = torch.max(self._Q_network(states1), dim=1, keepdim=True)
-            qvalues0 = torch.gather(self._Q_target_net(states0), 1, actions).squeeze()
-            qvalues1 = torch.gather(self._Q_target_net(states1), 1, argmax_Q).squeeze()
+            # _, argmax_Q = torch.max(self._Q_network(states1), dim=1, keepdim=True)
+            # qvalues0 = torch.gather(self._Q_target_net(states0), 1, actions).squeeze()
+            # qvalues1 = torch.gather(self._Q_target_net(states1), 1, argmax_Q).squeeze()
+            qvalues0 = torch.gather(self._Q_network(states0), 1, actions).squeeze()
+            with torch.no_grad():
+                qvalues1, _ = torch.max(self._Q_target_net(states1), dim=1)
             TD_target = rewards + self.discount * qvalues1
             TD_target[done] = rewards[done]
-            # print('Q values:', torch.mean(qvalues0).detach().cpu())
-            # print('TD Target:', torch.mean(TD_target).detach().cpu())
             loss = huber_loss(qvalues0, TD_target)
             # Backward pass
             self.optimizer.zero_grad()
@@ -91,8 +92,17 @@ class DQNLearner(Learner):
             self.optimizer.step()
             self.scheduler.step()
             self.total_updates += 1
-        toc = time.time()
-        print(f'Last Q-regression took {toc-tic} seconds.')
+        if self.n % 100 == 0:
+            print('Q values:', torch.mean(qvalues0).detach().cpu())
+            print('TD Target:', torch.mean(TD_target).detach().cpu())
+            print('Loss:', loss)
+            total_norm = 0.0
+            for p in self._Q_network.parameters():
+                param_norm = p.grad.data.norm(2)
+                total_norm += param_norm.item() ** 2
+            print(f'Total grad norm: {total_norm ** 0.5:.3f}')
+            toc = time.time()
+            print(f'Last Q-regression took {toc-tic} seconds.')
         # Update Target network maybe
         self.n += 1
         if self.n >= self.target_update_every:
