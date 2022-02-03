@@ -13,7 +13,7 @@ from src.envs.pacman.pacman import GameState
 
 class Environment(core.Environment):
     """An RL environment of the game of Pacman.
-    
+
     Attributes:
         _layout (pacman.Layout): A Pacman game layout object.
         _num_ghosts (int): The number of ghosts agents.
@@ -29,7 +29,7 @@ class Environment(core.Environment):
 
     def __init__(self, layout="originalClassic", num_ghosts=4, graphics=False):
         """Initialize an environment object for the game of Pacman.
-        
+
         Args:
             layout (string): The name of the game layout to be loaded.
             num_ghosts (int): Number of ghost agents.
@@ -132,6 +132,7 @@ class Environment(core.Environment):
 
         info = []
         self._gameState = next_state
+        reward = max(0, reward)
         return core.TimeStep(self._observe(next_state), reward, done, info)
 
     def _observe(self, gameState):

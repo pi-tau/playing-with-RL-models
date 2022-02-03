@@ -101,7 +101,7 @@ if __name__ == '__main__':
     # Initialize the environment
     if args.game == 'pacman':
         env = Environment(layout='testClassic', graphics=False)
-        Q_network = MLPNetwork(env.shape()[0], [512, 1024], env.num_actions())
+        Q_network = MLPNetwork(env.shape()[0], [512, 256], env.num_actions())
     else:
         env = AtariEnvironment(
             args.game,
