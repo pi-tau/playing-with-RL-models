@@ -61,7 +61,7 @@ class DQNActor(core.Actor):
 
     def __init__(self, Qnetwork, buffer_client, cache_limit=1):
         self._Qnetwork = Qnetwork.to(torch.device('cpu'))
-        self.epsilon = 0.0
+        self.epsilon = 1.0
         self.buffer_client = buffer_client
         # self._buffer_cache = []
         # self._cache_limit = cache_limit
@@ -78,6 +78,9 @@ class DQNActor(core.Actor):
         self._Qnetwork = Qnet.to(torch.device('cpu'))
 
     def select_action(self, observation, legal):
+        if self.epsilon == 1.0:
+            return np.random.choice(legal)
+
         observation = np.expand_dims(observation, 0)
         observation = torch.from_numpy(observation).float()
         observation = observation.to(self.Qnetwork.device)

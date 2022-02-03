@@ -1,19 +1,8 @@
 import gym
 import numpy as np
+from gym.wrappers import AtariPreprocessing
 
 from ..core import Environment, TimeStep
-
-# MsPacman actions
-# ================
-# 0 : NOOP
-# 1 : NORTH
-# 2 : EAST
-# 3 : WEST
-# 4 : SOUTH
-# 5 : NORTHEAST
-# 6 : NORTHWEST
-# 7 : SOUTHEAST
-# 8 : SOUTHWEST
 
 
 class AtariEnvironment(Environment):
