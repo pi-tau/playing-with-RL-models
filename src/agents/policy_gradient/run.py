@@ -38,7 +38,7 @@ env = Environment(layout="testClassic", num_ghosts=0)
 
 
 # Initialize a policy network, move it to device and prepare for training.
-policy_network = MLPNetwork(env.shape()[0], [256, 256], env.num_actions())
+policy_network = MLPNetwork(env.observable_shape(), [256, 256], env.num_actions())
 policy_network.train()
 policy_network = policy_network.to(device)
 
@@ -47,7 +47,7 @@ policy_network = policy_network.to(device)
 batch_size = 32
 buffer = EpisodeBuffer()
 agent = PGAgent(policy_network, buffer, use_reward_to_go=True, discount=0.9,
-    batch_size=batch_size, learning_rate=3e-6, clip_grad=100, stdout=stdout)
+    batch_size=batch_size, learning_rate=1e-6, clip_grad=100, stdout=stdout)
 
 
 # Initialize and run the agent-environment feedback loop.

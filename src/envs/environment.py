@@ -48,7 +48,7 @@ class Environment(core.Environment):
         # Initialize the game state.
         self.gameState = GameState()
         self.gameState.initialize(self.layout, self.num_ghosts)
-        self._shape = self._observe(self.gameState).shape
+        self.shape = self._observe(self.gameState).shape
 
         # Initialize action-to-idx mappings.
         self.idxToAction = dict(enumerate(self.gameState.getAllActions()))
@@ -85,12 +85,12 @@ class Environment(core.Environment):
         return list(map(lambda x: self.actToIdx[x], self.gameState.getLegalPacmanActions()))
 
     def num_actions(self):
-        """The total number of possible actions in the environment."""
+        """The total number of actions in the environment."""
         return self._num_actions
 
-    def shape(self):
+    def observable_shape(self):
         """The shape of the numpy array representing the observable state of the environment."""
-        return self._shape
+        return self.shape
 
     def graphics(self, graphics):
         """Set a boolean flag whether a graphical interface should be displayed."""

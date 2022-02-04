@@ -53,7 +53,7 @@ class Environment(abc.ABC):
         """The total number of possible actions in the environment."""
 
     @abc.abstractmethod
-    def shape(self):
+    def observable_shape(self):
         """The shape of the numpy array representing the observable state of the environment."""
 
     @abc.abstractmethod

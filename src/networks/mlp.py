@@ -1,3 +1,5 @@
+from functools import reduce
+
 import torch.nn as nn
 import torch.nn.functional as F
 
@@ -25,11 +27,11 @@ class MLPNetwork(nn.Module, BaseNetwork):
         output_layer (nn.Linear): Linear layer used to produce the output of the network.
     """
 
-    def __init__(self, input_size, hidden_sizes, out_size, dropout_rate=0.0):
+    def __init__(self, input_shape, hidden_sizes, out_size, dropout_rate=0.0):
         """Initialize a policy model.
 
         Args:
-            input_size (int): Size of the environment state.
+            input_shape (tuple[int]): The shape of the environment observable state.
             hidden_sizes (list[int]): A list of sizes for the hidden layers. Providing an
                 empty slice will create a linear function approximation with no hidden
                 layers.
@@ -37,7 +39,7 @@ class MLPNetwork(nn.Module, BaseNetwork):
             dropout_rate (float): Dropout probability.
         """
         super().__init__()
-        self.input_size = input_size
+        self.input_size = reduce(lambda x, y: x * y, input_shape)
         self.hidden_sizes = hidden_sizes
         self.out_size = out_size
         self.dropout_rate = dropout_rate
@@ -53,8 +55,8 @@ class MLPNetwork(nn.Module, BaseNetwork):
         self.num_layers = len(hidden_sizes)
         self.hidden_layers = nn.ModuleList()
         self.dropout_layers = nn.ModuleList()
-        fan_in = input_size
-        fan_out = input_size
+        fan_in = self.input_size
+        fan_out = self.input_size
         for fan_out in hidden_sizes:
             self.hidden_layers.append(nn.Linear(fan_in, fan_out))
             self.dropout_layers.append(nn.Dropout(dropout_rate))
