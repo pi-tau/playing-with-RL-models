@@ -43,7 +43,7 @@ class DQNLearner(Learner):
             l2_loss = 0.5 * (inputs - target) ** 2
             return torch.mean(torch.where(abs_diff < delta, l2_loss, l1_loss))
 
-        tic = time.time()
+        # tic = time.time()
         for _ in range(self.Q_regressions):
             # Sampling
             batch = buffer.draw(self.batch_size)
@@ -92,17 +92,17 @@ class DQNLearner(Learner):
             self.optimizer.step()
             self.scheduler.step()
             self.total_updates += 1
-        if self.n % 100 == 0:
-            print('Q values:', torch.mean(qvalues0).detach().cpu())
-            print('TD Target:', torch.mean(TD_target).detach().cpu())
-            print('Loss:', loss)
-            total_norm = 0.0
-            for p in self._Q_network.parameters():
-                param_norm = p.grad.data.norm(2)
-                total_norm += param_norm.item() ** 2
-            print(f'Total grad norm: {total_norm ** 0.5:.3f}')
-            toc = time.time()
-            print(f'Last Q-regression took {toc-tic} seconds.')
+        # if self.n % 100 == 0:
+            # print('Q values:', torch.mean(qvalues0).detach().cpu())
+            # print('TD Target:', torch.mean(TD_target).detach().cpu())
+            # print('Loss:', loss)
+            # total_norm = 0.0
+            # for p in self._Q_network.parameters():
+                # param_norm = p.grad.data.norm(2)
+                # total_norm += param_norm.item() ** 2
+            # print(f'Total grad norm: {total_norm ** 0.5:.3f}')
+            # toc = time.time()
+            # print(f'Last Q-regression took {toc-tic} seconds.')
         # Update Target network maybe
         self.n += 1
         if self.n >= self.target_update_every:

@@ -132,7 +132,6 @@ class Environment(core.Environment):
 
         info = []
         self._gameState = next_state
-        reward = max(0, reward)
         return core.TimeStep(self._observe(next_state), reward, done, info)
 
     def _observe(self, gameState):
