@@ -1,4 +1,6 @@
 from math import sqrt
+import math
+from sqlite3 import InternalError
 import sys
 sys.path.append("../..")
 
@@ -40,6 +42,7 @@ class Environment(core.Environment):
         """
         # Initialize the game layout.
         self.layout = getLayout(layout)
+        self._observe = self._observe_dense
 
         # Initialize ghosts.
         self.num_ghosts = min(num_ghosts, self.layout.getNumGhosts())
@@ -48,6 +51,10 @@ class Environment(core.Environment):
         # Initialize the game state.
         self.gameState = GameState()
         self.gameState.initialize(self.layout, self.num_ghosts)
+        food = self.gameState.getFood()
+        self._initial_food = [(c, r) for r in range(food.height)
+                                    for c in range(food.width) if food[c][r]]
+        self._initial_caps = self.gameState.getCapsules()
         self.shape = self._observe(self.gameState).shape
 
         # Initialize action-to-idx mappings.
@@ -140,7 +147,7 @@ class Environment(core.Environment):
         self.gameState = next_state
         return core.TimeStep(self._observe(next_state), reward, done, info)
 
-    def _observe(self, gameState):
+    def _observe_dense(self, gameState):
         """Constructs a numpy array representing the observable state of the environment.
 
         Args:
@@ -148,8 +155,7 @@ class Environment(core.Environment):
 
         Returns:
             observable (np.Array): A 1D numpy array of shape (size,). The size of the
-                array depends on the size of the game layout and the number of ghosts.
-                size = (width x height) + num_ghosts
+                array depends on the number of features designed for the game state.
         """
         observable = []
         width, height = gameState.data.layout.width, gameState.data.layout.height
@@ -232,7 +238,6 @@ class Environment(core.Environment):
         Returns:
             observable (np.Array): A 1D numpy array of shape (size,). The size of the
                 array depends on the size of the game layout and the number of ghosts.
-                size = (width x height) + num_ghosts
         """
         width, height = gameState.data.layout.width, gameState.data.layout.height
 
@@ -262,6 +267,70 @@ class Environment(core.Environment):
         # Stack all numpy vectors together.
         observation = np.concatenate([pacman, ghosts, food, capsules, scaredTimes])
         return observation.astype(np.float32)
+
+    def _observe_onehot(self, gameState):
+        """Constructs a one-hot numpy array encoding representing the observable state of
+        the environment.
+
+        Args:
+            gameState (pacman.GameState): The game state to be observed.
+
+        Returns:
+            observable (np.Array): A 1D numpy array of shape (size,). The size of the
+                array depends on the size of the game layout and the number of ghosts.
+        """
+        width, height = gameState.data.layout.width, gameState.data.layout.height
+
+        pacman_position = gameState.getPacmanPosition()
+        pacman_position = pacman_position[0]*height + pacman_position[1]
+
+        ghosts = gameState.getGhostStates()
+        ghost_positions = [g.getPosition()[0]*height + g.getPosition()[1] for g in ghosts]
+
+        positions_cap = width * height
+
+        food = gameState.getFood()
+        food_positions = ([(c, r) for r in range(food.height)
+                            for c in range(food.width) if food[c][r]])
+        food_onehot = []
+        i, j = 0, 0
+        while i < len(self._initial_food) and j < len(food_positions):
+            if food_positions[j] == self._initial_food[i]:
+                food_onehot.append(1)
+                j += 1
+            else:
+                food_onehot.append(0)
+            i += 1
+        if j != len(food_positions):
+            raise InternalError("failed to construct one-hot encoding for food positions")
+        food_encoding = int("0" + "".join(str(x) for x in food_onehot), 2)
+        food_cap = 2 ** len(self._initial_food)
+
+        capsule_positions = gameState.getCapsules()
+        capsule_onehot = []
+        i, j = 0, 0
+        while i < len(self._initial_caps) and j < len(capsule_positions):
+            if capsule_positions[j] == self._initial_caps[i]:
+                capsule_onehot.append(1)
+                j += 1
+            else:
+                capsule_onehot.append(0)
+            i += 1
+        if j != len(capsule_positions):
+            raise InternalError("failed to construct one-hot encoding for food positions")
+        capsule_encoding = int("0" + "".join(str(x) for x in capsule_onehot), 2)
+        capsule_cap = 2 ** len(self._initial_caps)
+
+        dense_encoding = [pacman_position] + ghost_positions + [food_encoding, capsule_encoding]
+        caps = [positions_cap] + [positions_cap] * len(ghost_positions) + [food_cap, capsule_cap]
+
+        index = 0
+        for i in range(len(dense_encoding)):
+            index += int(dense_encoding[i] * math.prod(caps[i+1:]))
+
+        one_hot = np.zeros(math.prod(caps), dtype=np.float32)
+        one_hot[index] = 1.
+        return one_hot
 
 
 def _manhattan_distance(x1, y1, x2, y2):
