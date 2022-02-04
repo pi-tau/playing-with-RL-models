@@ -20,17 +20,14 @@ class PGAgent(Agent):
             actor.
     """
 
-    def __init__(self, policy_network, buffer, use_reward_to_go=True, discount=0.9,
-                 batch_size=1, learning_rate=1e-4, lr_decay=1.0, decay_steps=1, reg=0.0,
-                 clip_grad=None, stdout=sys.stdout):
+    def __init__(self, policy_network, buffer, discount=0.9, batch_size=1,
+                 learning_rate=1e-4, lr_decay=1.0, decay_steps=1, reg=0.0, clip_grad=None,
+                 stdout=sys.stdout):
         """Initialize a PG Agent instance.
 
         Args:
-            policy_network (core.Network): A network object used as a behavior policy.
+            policy_network (Network): A network object used as a behavior policy.
             buffer (core.Buffer): A buffer object used to store episodes of experiences.
-            use_reward_to_go (bool, optional): If True the learning step uses cumulative
-                returns. If False, the learning step uses total baselined returns.
-                Default value is True.
             discount (float, optional): Discount factor for future rewards.
                 Default values is 0.9.
             batch_size (int, optional): The number of episodes to be run before performing
@@ -42,8 +39,8 @@ class PGAgent(Agent):
             reg (float, optional): L2 regularization strength. Default values is 0.0.
             clip_grad (float, optional): Gradient clipping parameter. Default value is None.
         """
+        super().__init__()
         config = {
-            "use_reward_to_go"  : use_reward_to_go,
             "discount"          : discount,
             "learning_rate"     : learning_rate,
             "lr_decay"          : lr_decay,

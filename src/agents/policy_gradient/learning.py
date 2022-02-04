@@ -10,8 +10,8 @@ from src import core
 class PGLearner(core.Learner):
     """PG learner.
     This class implements the learning logic for a policy gradient agent.
-    The updates the policy network of the agent by performing single update steps
-    using a dataset of full episodes produced by the agent.
+    It updates the policy network of the agent by performing single update steps using a
+    dataset of full episodes produced by the agent.
     This is an offline and on-policy learning algorithm.
 
     Attributes:
@@ -36,8 +36,6 @@ class PGLearner(core.Learner):
         Args:
             policy_network (Network): A network object used as a behavior policy.
             config (dict): A dictionary with configuration parameters containing:
-                use_reward_to_go (bool) : If True the learning step uses cumulative
-                    returns. If False, the learning step uses total baselined returns
                 discount (float): Discount factor for future rewards.
                 learning_rate (float): Learning rate parameter.
                 lr_decay (float): Learning rate decay parameter.
@@ -49,6 +47,11 @@ class PGLearner(core.Learner):
         """
         self.policy_network = policy_network
         self.config = config
+        self.running_return = None
+        self.stdout = stdout
+        self.train_history = {"mean_return":[], "running_return":[]}
+
+        # Initialize the policy network optimizer.
         self.optimizer = torch.optim.Adam(
             self.policy_network.parameters(),
             lr=config["learning_rate"],
@@ -56,19 +59,30 @@ class PGLearner(core.Learner):
         )
         self.scheduler = torch.optim.lr_scheduler.StepLR(
             self.optimizer, step_size=config["decay_steps"], gamma=config["lr_decay"])
-        self.running_return = None
-        self.stdout = stdout
-        self.train_history = {"mean_return":[], "running_return":[]}
 
     def step(self, buffer, verbose=True):
         """Perform a single policy gradient update step.
-        Draw a batch of episodes from the buffer and compute an estimate of the gradient
-        of the policy. Subtract a baseline or use the `reward-to-go` trick to reduce the
-        variance of the estimate.
+
+        The gradient of the policy is given by the policy gradient theorem as:
+            dJ = E[ d log Policy(a_t | s_t) * R_t ]
+
+        To get the gradients of the weights we will backpropagate a "pseudo-loss" given by
+        integrating the above equation:
+            J_pseudo = E[ log Policy(a_t | s_t) * R_t ]
+
+        Compute an estimate of the pseudo-loss using Monte-Carlo samples.
+        Draw a batch of observed episodes from the buffer.
+        For each time-step `t` of each episode of the batch do the following:
+            - compute the return `R_t` as the discounted reward to go
+            - compute the log-probability of selecting action `a_t` while in state `s_t`
+
+        Compute the "pseudo-loss" as the mean accross all time-steps from all episodes of
+        the batch.
 
         Args:
             buffer (core.Buffer): A buffer object used to store episodes of experiences.
-            verbose (bool, optional): If True, printout logging information. Default value is True.
+            verbose (bool, optional): If True, printout logging information.
+                Default value is True.
         """
         stdout = self.stdout
         device = self.policy_network.device
@@ -79,20 +93,15 @@ class PGLearner(core.Learner):
         # Fetch trajectories from the buffer.
         observations, actions, rewards, masks = buffer.draw(device=device)
 
-        # Compute discounted baselined returns, or compute discounted cumulative.
-        if self.config["use_reward_to_go"]:
-            q_values = self._discounted_cumulative_returns(rewards, masks, discount)
-        else:
-            q_values = self._discounted_baselined_returns(rewards, discount)
-
-        # Normalize the discounted returns.
-        q_values = (q_values - torch.mean(q_values)) / (torch.std(q_values) + eps)
+        # Compute the discounted cumulative returns and normalize them.
+        q_values = self._discounted_cumulative_returns(rewards, masks, discount)
+        q_values = self._normalized_returns(q_values, masks)
 
         # Compute the loss.
         logits = self.policy_network(observations)
         nll = F.cross_entropy(logits.permute(0,2,1), actions, reduction="none")
         weighted_nll = torch.mul(masks * nll, q_values)
-        loss = torch.mean(torch.sum(weighted_nll, dim=1))
+        loss = torch.sum(weighted_nll) / torch.sum(masks)
 
         # Perform backward pass.
         self.optimizer.zero_grad()
@@ -129,7 +138,7 @@ class PGLearner(core.Learner):
             tqdm.write(f"Running return:     {self.running_return:.4f}", file=stdout)
 
     @torch.no_grad()
-    def _discounted_cumulative_returns(self, rewards, masks=True, discount=1.0):
+    def _discounted_cumulative_returns(self, rewards, masks=None, discount=1.0):
         """Compute the discounted cumulative reward-to-go at every time-step `t`.
 
         "Don't let the past destract you"
@@ -159,14 +168,18 @@ class PGLearner(core.Learner):
         Args:
             rewards (torch.Tensor): Tensor of shape (episodes, steps), containing the
                 rewards obtained at every step.
-            masks (torch.Tensor): A tensor of shape (episodes, steps), of boolean values,
-                that mask out the part of an episode after it has finished.
-            discount (float): Discount factor for future rewards.
+            masks (torch.Tensor. optional): A tensor of shape (episodes, steps), of boolean
+                values, that mask out the part of an episode after it has finished.
+                Default value is None, meaning there is no masking.
+            discount (float, optional): Discount factor for future rewards.
+                Default values is 1.0.
 
         Returns:
             discounted_returns (torch.Tensor): Tensor of shape (episodes, steps), giving
                 the discounted cumulative returns for each time-step of every episode.
         """
+        if masks is None:
+            masks = torch.ones_like(rewards)
         _, steps = rewards.shape
         device = self.policy_network.device
         toeplitz = [[discount ** j for j in range(i,-1,-1)] + [0]*(steps-i-1) for i in range(steps)]
@@ -175,31 +188,49 @@ class PGLearner(core.Learner):
         return discounted_returns * masks
 
     @torch.no_grad()
-    def _discounted_baselined_returns(self, rewards, discount):
-        """Compute the discounted baselined return for every episode in the batch.
+    def _normalized_returns(self, returns, masks=None):
+        """Normalize the cumulative rewards to go.
 
-        The return for an episode is compute as the discounted cumulative sum of all
-        rewards received during that episode.
-        The baseline is compute as the mean of the returns of all episodes in the batch.
+        One way to reduce the variance of the estimate of the policy gradient is to
+        subtract a bias term in the formula:
+            dJ = E[ d log Policy(a_t | s_t) (R_t - b) ]
 
-        Subtracting the baseline from the total return has the effect of centering the
-        return, giving positive values to good episodes and negative values to bad
-        episodes.
+        A near optimal choice for a baseline is the expected value of R_t from state s_t.
+        To make a Monte-Carlo estimate of the expected value of the return R_t from a
+        given state s_t we would need to run multiple trajectories starting from that
+        state. However, configuring the environment to start from a particular state s_t
+        may not be possible.
+        A slightly worse choice for a baseline is the expected value R_t at time-step `t`.
+        To make a Monte-Carlo estimate of the value R_t at time-step `t` we simply need
+        to take the average from the batch for that time-step.
+        Finally, the quantity (R_i,t - E[R_i,t]) is scaled by the standard deviation of
+        the return at time-step `t`. The reason for this is that at different time-steps
+        we may have wildly different returns producing wildly different gradient updates.
+        To provide for a more stable learning process we want to scale the returns at
+        every time-step so that the they are normalized.
 
         Args:
-            rewards (torch.Tensor): Tensor of shape (batch_size, steps), containing the
-                rewards obtained at every step.
-            discount (float): Discount factor for future rewards.
+            returns (torch.Tensor): Tensor of shape (episodes, steps), containing the
+                returns obtained at every step.
+            masks (torch.Tensor. optional): A tensor of shape (episodes, steps), of boolean
+                values, that mask out the part of an episode after it has finished.
+                Default value is None, meaning there is no masking.
 
         Returns:
-            discounted_returns (torch.Tensor): Tensor of shape (batch_size, 1), giving the
-                discounted baselined return for every episode.
+            normalized_returns (torch.Tensor): Tensor of shape (episodes, steps), giving
+                the normalized returns for each time-step of every episode.
         """
-        _, steps = rewards.shape
+        if masks is None:
+            masks = torch.ones_like(returns)
+        # When working with a batch of trajectories, only the active trajectories are
+        # considered for calculating the mean and the std.
         device = self.policy_network.device
-        discounts = torch.FloatTensor([discount ** i for i in range(steps)]).to(device)
-        discounted_returns = torch.sum(torch.mul(rewards, discounts), dim=-1, keepdim=True)
-        discounted_returns -= torch.mean(torch.sum(rewards, dim=-1))
-        return discounted_returns
+        eps = torch.finfo(torch.float32).eps
+        masked_means = torch.sum(returns, dim=0) / torch.maximum(
+                        torch.sum(masks, dim=0), torch.Tensor([1]).to(device))
+        masked_vars = torch.sum(torch.square(returns-masked_means), dim=0) / torch.maximum(
+                        torch.sum(masks, dim=0), torch.Tensor([1]).to(device))
+        masked_stds = torch.maximum(torch.sqrt(masked_vars), torch.Tensor([eps]).to(device))
+        return (returns - masked_means) / masked_stds
 
 #
