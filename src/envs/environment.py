@@ -42,7 +42,7 @@ class Environment(core.Environment):
         """
         # Initialize the game layout.
         self.layout = getLayout(layout)
-        self._observe = self._observe_dense
+        self._observe = self._observe_boolean
 
         # Initialize ghosts.
         self.num_ghosts = min(num_ghosts, self.layout.getNumGhosts())

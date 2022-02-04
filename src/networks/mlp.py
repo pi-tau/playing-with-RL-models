@@ -58,7 +58,7 @@ class MLPNetwork(nn.Module, BaseNetwork):
         fan_in = self.input_size
         fan_out = self.input_size
         for fan_out in hidden_sizes:
-            self.hidden_layers.append(nn.Linear(fan_in, fan_out))
+            self.hidden_layers.append(nn.Linear(fan_in, fan_out, bias=False))
             self.dropout_layers.append(nn.Dropout(dropout_rate))
             fan_in = fan_out
         self.output_layer = nn.Linear(fan_out, out_size)
