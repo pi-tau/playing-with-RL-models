@@ -27,7 +27,8 @@ class Environment(core.Environment):
         _display (pacman.PacmanGraphics): Graphical display for the Pacman game.
     """
 
-    def __init__(self, layout="originalClassic", num_ghosts=4, graphics=False):
+    def __init__(self, layout="originalClassic", num_ghosts=4,
+                 graphics=False, kind='grid'):
         """Initialize an environment object for the game of Pacman.
 
         Args:
@@ -46,8 +47,14 @@ class Environment(core.Environment):
         # Initialize the game state.
         self._gameState = GameState()
         self._gameState.initialize(self._layout, self._num_ghosts)
-        self._shape = self._observe(self._gameState).shape
-
+        if kind == 'grid':
+            self._shape = self._observe_boolean(self._gameState).shape
+            self._observe = self._observe_boolean
+        elif kind == 'vector':
+            self._shape = self._observe(self._gameState).shape
+        else:
+            raise ValueError('Unknown observation kind! Possible values for ' \
+                            '`kind` are "grid" and "vector".')
         # Initialize action-to-idx mappings.
         self._idxToAction = dict(enumerate(self._gameState.getAllActions()))
         self._idxToAction[len(self._idxToAction)] = "Stop"
@@ -229,33 +236,21 @@ class Environment(core.Environment):
                 size = (width x height) + num_ghosts
         """
         width, height = gameState.data.layout.width, gameState.data.layout.height
-
         # Get pacman position encoded as one-hot vector.
-        pacman = np.zeros((width, height))
-        pacman[gameState.getPacmanPosition()] = 1
-        pacman = pacman.reshape(-1)
-
+        agents = np.zeros((width, height))
+        agents[gameState.getPacmanPosition()] = 1
         # Get ghost positions encoded as boolean vector.
-        ghosts = np.zeros((width, height))
-        for x, y in gameState.getGhostPositions():
-            ghosts[int(x), int(y)] += 1
-        ghosts = ghosts.reshape(-1)
-
-        # Get food positions encoded as boolean vector.
-        food = np.array(gameState.getFood().data, dtype=float).reshape(-1)
-
-        # Get capsule positions encoded as boolean vector.
-        capsules = np.zeros((width, height))
+        ghost_positions = gameState.getGhostPositions()
+        ghost_states = gameState.getGhostStates()
+        for (x, y), st in zip(ghost_positions, ghost_states):
+            agents[int(x), int(y)] += -1 + st.scaredTimer / 40
+        # Get walls as {-1, 0} array
+        walls = -1 * np.array(gameState.getWalls().data, dtype=np.float32)
+        # Get food positions and capsules as {0.5, 1.0} array
+        food = 0.5 * np.array(gameState.getFood().data, dtype=np.float32)
         for x, y in gameState.getCapsules():
-            capsules[x, y] += 1
-        capsules = capsules.reshape(-1)
-
-        # Get scared times for all ghosts.
-        scaredTimes = np.array([s.scaredTimer for s in gameState.getGhostStates()])
-
-        # Stack all numpy vectors together.
-        observation = np.concatenate([pacman, ghosts, food, capsules, scaredTimes])
-        return observation.astype(np.float32)
+            food[x, y] += 1
+        return np.stack([agents, walls, food]).astype(np.float32)
 
 
 def _manhattan_distance(x1, y1, x2, y2):

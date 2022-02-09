@@ -1,6 +1,5 @@
 # TODO
 # =============================================================================
-# * Enhance features
 # * Asynchronous actors
 # -----------------------------------------------------------------------------
 import argparse
@@ -16,7 +15,7 @@ from src.environment_loop import EnvironmentLoop
 from src.envs.environment import Environment
 from src.envs.atari import AtariEnvironment
 from src.networks.mlp import MLPNetwork
-from src.networks.cnn import ConvolutionalNet
+from src.networks.cnn import ConvolutionalNet, ConvolutionalNetSmall
 from src.infrastructure.replay_buffer import ReplayBuffer
 from src.infrastructure.util_funcs import fix_random_seeds, set_printoptions
 from src.infrastructure.logging import DQNAgentLogger
@@ -99,9 +98,11 @@ if __name__ == '__main__':
     set_printoptions(precision=5, sci_mode=False)
 
     # Initialize the environment
-    if args.game == 'pacman':
-        env = Environment(layout='testClassic', graphics=False)
-        Q_network = MLPNetwork(env.shape()[0], [512, 256], env.num_actions())
+    if args.game.startswith('pacman'):
+        _, layout = args.game.split('.')
+        env = Environment(layout=layout, graphics=False, kind='grid')
+        Q_network = ConvolutionalNetSmall(env.shape(), env.num_actions())
+        # Q_network = MLPNetwork(env.shape()[0], [512, 256], env.num_actions())
     else:
         env = AtariEnvironment(
             args.game,
@@ -113,7 +114,6 @@ if __name__ == '__main__':
             output_shape=env.num_actions()
         )
     obs = env.reset()
-    print(obs.observation.shape)
     Q_network = Q_network.to(DEVICE)
     Q_network.train()
 

@@ -74,3 +74,56 @@ class ConvolutionalNet(nn.Module, BaseNetwork):
         x = self.relu5(self.dense2(x))
         out = self.output_layer(x)
         return out
+
+
+class ConvolutionalNetSmall(nn.Module, BaseNetwork):
+
+    def __init__(self, input_shape, output_shape):
+        super().__init__()
+        # Berkley inputs are (4, 27, 28)
+        if len(input_shape) == 2:
+            input_shape = (1,) + input_shape
+        self.input_shape = input_shape
+        self.kwargs = dict(input_shape=input_shape,
+                           output_shape=output_shape)
+        self.conv1 = nn.Conv2d(
+            in_channels=input_shape[0],
+            out_channels=32,
+            kernel_size=3,
+            stride=1,
+            padding=0
+        )
+        conv_shape = _conv2d_outshape(input_shape, 32, 3, 1)
+        self.relu1 = nn.ReLU()
+        self.conv2 = nn.Conv2d(
+            in_channels=32,
+            out_channels=64,
+            kernel_size=3,
+            stride=1,
+            padding=0
+        )
+        conv_shape = _conv2d_outshape(conv_shape, 64, 3, 1)
+        self.relu2 = nn.ReLU()
+        self.flatten = nn.Flatten()
+        self.dense1 = nn.Linear(
+            in_features=conv_shape[0] * conv_shape[1] * conv_shape[2],
+            out_features=512)
+        self.relu3 = nn.ReLU()
+        self.dense2 = nn.Linear(
+            in_features=512,
+            out_features=256
+        )
+        self.relu4 = nn.ReLU()
+        self.output_layer = nn.Linear(
+            in_features=256,
+            out_features=output_shape
+        )
+
+    def forward(self, x):
+        x = self.relu1(self.conv1(x))
+        x = self.relu2(self.conv2(x))
+        x = self.flatten(x)
+        x = self.relu3(self.dense1(x))
+        x = self.relu4(self.dense2(x))
+        out = self.output_layer(x)
+        return out
