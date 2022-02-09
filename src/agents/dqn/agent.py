@@ -62,4 +62,6 @@ class DQNAgent(Agent):
         # Log Q-network stats
         self._logger.add_mean_Q(self)
         self._logger.add_buffer_capacity(self, len(self._buffer))
+        if self.total_experiences % 10_000:
+            self._logger.add_Q_network(self, self._learner.Qnetwork)
         return True
