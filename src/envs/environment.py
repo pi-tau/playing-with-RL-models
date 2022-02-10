@@ -28,7 +28,7 @@ class Environment(core.Environment):
     """
 
     def __init__(self, layout="originalClassic", num_ghosts=4,
-                 graphics=False, kind='grid'):
+                 graphics=False, kind='grid', framestack=4):
         """Initialize an environment object for the game of Pacman.
 
         Args:
@@ -60,7 +60,9 @@ class Environment(core.Environment):
         self._idxToAction[len(self._idxToAction)] = "Stop"
         self._actToIdx = {v:k for k, v in self._idxToAction.items()}
         self._num_actions = len(self._idxToAction)
-
+        self._framestack = framestack
+        self._frameblend = np.linspace(1.0, 0.0, framestack, endpoint=False)
+        self._frameblend = self._frameblend.reshape(framestack, 1, 1)
         self._display = None
         if graphics:
             self._display = PacmanGraphics(zoom=1.0, frameTime=0.1)
@@ -128,18 +130,37 @@ class Environment(core.Environment):
 
         # Loop over all agents (pacman and ghosts) to form a single ply.
         agents = [pacman_dummy_agent] + self._ghosts
-        next_state = self._gameState
-        for idx, ag in enumerate(agents):
-                next_state = next_state.generateSuccessor(idx, ag.getAction(next_state))
-                if self._display is not None:
-                    self._display.update(next_state.data)
-                reward = next_state.getScore() - self._gameState.getScore()
-                done = (next_state.isWin() or next_state.isLose())
-                if done: break
+        reward = 0
+        observations = []
+        S = self._gameState
+        done = False
+        illegal = False
+        # Apply the same action `self._framestack` number of times
+        for _ in range(self._framestack):
+            for idx, ag in enumerate(agents):
+                try:
+                    S = S.generateSuccessor(idx, ag.getAction(S))
+                    if self._display is not None:
+                        self._display.update(S.data)
+                except:
+                    illegal = True
+                    continue
+            reward = S.getScore() - self._gameState.getScore()
+            done = (S.isWin() or S.isLose())
+            observations.append(self._observe(S))
+            if done or illegal: break
 
+        self._gameState = S
         info = []
-        self._gameState = next_state
-        return core.TimeStep(self._observe(next_state), reward, done, info)
+        if len(observations[0].shape) == 3:
+            # [agents, walls, food]
+            L = len(observations)
+            agents = np.array([o[0] for o in observations]) * self._frameblend[:L]
+            agents = np.sum(agents, axis=0)
+            observation = np.array([agents, observations[0][1], observations[-1][2]])
+        else:
+            observation = observations[-1]
+        return core.TimeStep(observation, reward, done, info)
 
     def _observe(self, gameState):
         """Constructs a numpy array representing the observable state of the environment.
