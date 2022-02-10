@@ -26,7 +26,7 @@ class DQNAgent(Agent):
         """
         # `actor`, `learner` and `buffer` arguments are binded to `self` here
         super().__init__(actor, learner, buffer)
-        self._actor.epsilon = initial_eps
+        self._actor.epsilon = 1.0
         self.min_experiences = min_experiences
         self.initial_eps = initial_eps
         self.final_eps = final_eps
@@ -60,10 +60,10 @@ class DQNAgent(Agent):
         # Update policy epsilon
         alpha = min(1.0, self.total_experiences / self.eps_decay_range)
         r = self.initial_eps - self.final_eps
-        self._actor.epsilon = self.final_eps + alpha * r
+        self._actor.epsilon = self.initial_eps - alpha * r
         # Log Q-network stats
         self._logger.add_mean_Q(self)
         self._logger.add_buffer_capacity(self, len(self._buffer))
-        if self.n_updates % 100 == 0:
-            self._logger.add_Q_network(self, self._learner.Qnetwork)
+        self._logger.add_epsilon(self, self._actor.epsilon)
+        self._logger.add_Q_network(self, self._learner._Q_network)
         return True
