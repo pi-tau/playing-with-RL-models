@@ -34,6 +34,7 @@ class DQNAgent(Agent):
         self.Q_update_every = Q_update_every
         self.n = 0  # counts new observations since last self.update() call
         self.total_experiences = 0
+        self.n_updates = 0
         self._logger = logger if logger is not None else NullLogger
 
     def observe(self, action, timestep, is_last=False):
@@ -51,6 +52,7 @@ class DQNAgent(Agent):
         if (len(self._buffer) < self.min_experiences or
             self.n < self.Q_update_every):
             return False
+        self.n_updates += 1
         # Update Q-network parameters
         self._learner.step(self._buffer)
         self._actor.Qnetwork = self._learner.Qnetwork
@@ -62,6 +64,6 @@ class DQNAgent(Agent):
         # Log Q-network stats
         self._logger.add_mean_Q(self)
         self._logger.add_buffer_capacity(self, len(self._buffer))
-        if self.total_experiences % 10_000:
+        if self.n_updates % 1000 == 0:
             self._logger.add_Q_network(self, self._learner.Qnetwork)
         return True
