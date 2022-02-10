@@ -247,7 +247,12 @@ class Environment(core.Environment):
             num_food, num_capsules, num_scared_ghosts, num_active_ghosts = 0, 0, 0, 0
             x_new = x + dx
             y_new = y + dy
-            while x_new > 0 and x_new <= width and y_new > 0 and y_new <=height and not walls[x_new][y]:
+            while (x_new > 0 and
+                   x_new <= width and
+                   y_new > 0 and
+                   y_new <= height and
+                   not walls[x_new][y_new]):
+
                 if x_new < food.width and y_new < food.height and food[x_new][y_new]:
                     num_food += 1
                 if (x_new, y_new) in capsule_positions:

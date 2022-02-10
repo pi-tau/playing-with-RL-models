@@ -98,9 +98,9 @@ if __name__ == '__main__':
     # Initialize the environment
     if args.game.startswith('pacman'):
         _, layout = args.game.split('.')
-        env = Environment(layout=layout, graphics=False, kind='grid')
+        env = Environment(layout=layout, graphics=False, kind='vector')
         # Q_network = ConvolutionalNetSmall(env.shape(), env.num_actions())
-        Q_network = MLPNetwork(env.shape()[0], [1024, 512, 256], env.num_actions())
+        Q_network = MLPNetwork(env.shape()[0], [512, 256, 128], env.num_actions())
     else:
         exit()
         # env = AtariEnvironment(
@@ -131,7 +131,7 @@ if __name__ == '__main__':
     agent = DQNAgent(actor, learner, buffer, min_experiences=MIN_EXPERIENCES,
                      Q_update_every=Q_UPDATE_EVERY, initial_eps=INITIAL_EPS,
                      final_eps=FINAL_EPS, eps_decay_range=EPS_DECAY_RANGE,
-                     logger=DQNAgentLogger(OUTPUT_DIR, save_freq=10_000))
+                     logger=DQNAgentLogger(OUTPUT_DIR, save_freq=100))
 
     plate = _STARTUP_PLATE_.format(
         starttime=datetime.datetime.now(),
