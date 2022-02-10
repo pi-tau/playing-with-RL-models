@@ -28,7 +28,7 @@ class Environment(core.Environment):
     """
 
     def __init__(self, layout="originalClassic", num_ghosts=4,
-                 graphics=False, kind='grid', repeat=2):
+                 graphics=False, kind='grid', repeat=1):
         """Initialize an environment object for the game of Pacman.
 
         Args:
@@ -62,9 +62,9 @@ class Environment(core.Environment):
         self._idxToAction[len(self._idxToAction)] = "Stop"
         self._actToIdx = {v:k for k, v in self._idxToAction.items()}
         self._num_actions = len(self._idxToAction)
-        self._repeat = repeat
-        self._blend = np.linspace(0.5, 1.0, repeat, endpoint=True)
-        self._blend = self._blend.reshape(repeat, 1, 1)
+        # self._repeat = repeat
+        # self._blend = np.linspace(0.5, 1.0, repeat, endpoint=True)
+        # self._blend = self._blend.reshape(repeat, 1, 1)
         self._display = None
 
         if graphics:
@@ -133,6 +133,7 @@ class Environment(core.Environment):
         info = []
         return core.TimeStep(self._observe(S), reward, done, info)
 
+
     def _step_grid(self, actID):
         # Create a dummy agent taking the given action.
         pacman_dummy_agent = lambda: None
@@ -142,31 +143,19 @@ class Environment(core.Environment):
         agents = [pacman_dummy_agent] + self._ghosts
         S = self._gameState
         done = False
-        illegal = False
-        observations = []
         # Apply the same action `self._repeat` number of times
-        for _ in range(self._repeat):
-            for idx, ag in enumerate(agents):
-                try:
-                    S = S.generateSuccessor(idx, ag.getAction(S))
-                    if self._display is not None:
-                        self._display.update(S.data)
-                except:
-                    illegal = True
-                    continue
+        # for _ in range(self._repeat):
+        for idx, ag in enumerate(agents):
+            S = S.generateSuccessor(idx, ag.getAction(S))
+            if self._display is not None:
+                self._display.update(S.data)
             reward = S.getScore() - self._gameState.getScore()
             done = (S.isWin() or S.isLose())
-            observations.append(self._observe_boolean(S))
-            if done or illegal: break
-
+            if done: break
         self._gameState = S
         info = []
-        L = len(observations)
-        agents = np.array([o[0] for o in observations]) * self._blend[:L]
-        agents = np.sum(agents, axis=0)
-        observation = np.array([agents, observations[0][1], observations[-1][2]])
-        observation = observation.ravel()
-        return core.TimeStep(observation, reward, done, info)
+        obs = self._observe_boolean(S).ravel()
+        return core.TimeStep(obs, reward, done, info)
 
 
     def step(self, actID):
