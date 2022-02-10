@@ -13,7 +13,6 @@ from src.agents.dqn.agent import DQNAgent
 from src.agents.dqn.learner import DQNLearner
 from src.environment_loop import EnvironmentLoop
 from src.envs.environment import Environment
-from src.envs.atari import AtariEnvironment
 from src.networks.mlp import MLPNetwork
 from src.networks.cnn import ConvolutionalNet, ConvolutionalNetSmall
 from src.infrastructure.replay_buffer import ReplayBuffer
@@ -54,7 +53,6 @@ if __name__ == '__main__':
     parser.add_argument('--device', choices=['cpu', 'cuda'], type=str, default='cpu')
     parser.add_argument('--game', action='store', type=str, default='MsPacman-v4')
     parser.add_argument('--episodes', action='store', type=int, default=10_000)
-    # parser.add_argument('--experiences', action='store', type=int, default=100_000)
     parser.add_argument('--max_steps', action='store', type=int, default=10_000)
     parser.add_argument('--batch_size', action='store', type=int, default=128)
     parser.add_argument('--lr', type=float, action='store', default=1e-3)
@@ -104,15 +102,16 @@ if __name__ == '__main__':
         # Q_network = ConvolutionalNetSmall(env.shape(), env.num_actions())
         Q_network = MLPNetwork(env.shape()[0], [1024, 512, 256], env.num_actions())
     else:
-        env = AtariEnvironment(
-            args.game,
-            frameskip=SKIP_FRAMES,
-            framestack=STACK_FRAMES
-        )
-        Q_network = ConvolutionalNet(
-            input_shape=env.shape(),
-            output_shape=env.num_actions()
-        )
+        exit()
+        # env = AtariEnvironment(
+        #     args.game,
+        #     frameskip=SKIP_FRAMES,
+        #     framestack=STACK_FRAMES
+        # )
+        # Q_network = ConvolutionalNet(
+        #     input_shape=env.shape(),
+        #     output_shape=env.num_actions()
+        # )
     obs = env.reset()
     Q_network = Q_network.to(DEVICE)
     Q_network.train()
@@ -141,7 +140,6 @@ if __name__ == '__main__':
         skip_frames=SKIP_FRAMES,
         stack_frames=STACK_FRAMES,
         n_episodes=NUM_EPSIODES,
-        # n_experiences=NUM_EXPERIENCES,
         episodes=NUM_EPSIODES,
         max_steps=MAX_STEPS,
         batch_size=BATCH_SIZE,

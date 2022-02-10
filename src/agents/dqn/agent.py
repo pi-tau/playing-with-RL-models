@@ -58,7 +58,10 @@ class DQNAgent(Agent):
         self._actor.Qnetwork = self._learner.Qnetwork
         self.n = 0
         # Update policy epsilon
-        alpha = min(1.0, self.total_experiences / self.eps_decay_range)
+        alpha = min(
+            1.0,
+            (self.total_experiences - self.min_experiences) / self.eps_decay_range
+        )
         r = self.initial_eps - self.final_eps
         self._actor.epsilon = self.initial_eps - alpha * r
         # Log Q-network stats
