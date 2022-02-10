@@ -85,7 +85,7 @@ if __name__ == '__main__':
     INITIAL_EPS = args.initial_eps
     FINAL_EPS = args.final_eps
     EPS_DECAY_RANGE = args.eps_decay_range
-    DISCOUNT = 0.95
+    DISCOUNT = 0.99
     Q_UPDATE_EVERY = args.Q_update_every
     TARGET_UPDATE_EVERY = args.Q_target_update_every
     Q_REGRESSIONS = args.Q_regressions
@@ -101,8 +101,8 @@ if __name__ == '__main__':
     if args.game.startswith('pacman'):
         _, layout = args.game.split('.')
         env = Environment(layout=layout, graphics=False, kind='grid')
-        Q_network = ConvolutionalNetSmall(env.shape(), env.num_actions())
-        # Q_network = MLPNetwork(env.shape()[0], [512, 256], env.num_actions())
+        # Q_network = ConvolutionalNetSmall(env.shape(), env.num_actions())
+        Q_network = MLPNetwork(env.shape()[0], [1024, 512, 256], env.num_actions())
     else:
         env = AtariEnvironment(
             args.game,
@@ -132,7 +132,7 @@ if __name__ == '__main__':
     agent = DQNAgent(actor, learner, buffer, min_experiences=MIN_EXPERIENCES,
                      Q_update_every=Q_UPDATE_EVERY, initial_eps=INITIAL_EPS,
                      final_eps=FINAL_EPS, eps_decay_range=EPS_DECAY_RANGE,
-                     logger=DQNAgentLogger(OUTPUT_DIR))
+                     logger=DQNAgentLogger(OUTPUT_DIR, save_freq=10_000))
 
     plate = _STARTUP_PLATE_.format(
         starttime=datetime.datetime.now(),

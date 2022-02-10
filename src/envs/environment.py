@@ -48,7 +48,7 @@ class Environment(core.Environment):
         self._gameState = GameState()
         self._gameState.initialize(self._layout, self._num_ghosts)
         if kind == 'grid':
-            self._shape = self._observe_boolean(self._gameState).shape
+            self._shape = self._observe_boolean(self._gameState).ravel().shape
             self.step = self._step_grid
         elif kind == 'vector':
             self._shape = self._observe(self._gameState).shape
@@ -89,7 +89,7 @@ class Environment(core.Environment):
         if self._display is not None:
             self._display.initialize(self._gameState.data)
         if self._kind == 'grid':
-            obs = self._observe_boolean(self._gameState)
+            obs = self._observe_boolean(self._gameState).ravel()
         elif self._kind == 'vector':
             obs = self._observe(self._gameState)
         return core.TimeStep(obs, 0, False, [])
@@ -165,6 +165,7 @@ class Environment(core.Environment):
         agents = np.array([o[0] for o in observations]) * self._blend[:L]
         agents = np.sum(agents, axis=0)
         observation = np.array([agents, observations[0][1], observations[-1][2]])
+        observation = observation.ravel()
         return core.TimeStep(observation, reward, done, info)
 
 
