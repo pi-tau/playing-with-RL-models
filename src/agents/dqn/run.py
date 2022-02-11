@@ -137,7 +137,7 @@ if __name__ == '__main__':
     agent = DQNAgent(actor, learner, buffer, min_experiences=MIN_EXPERIENCES,
                      Q_update_every=Q_UPDATE_EVERY, initial_eps=INITIAL_EPS,
                      final_eps=FINAL_EPS, eps_decay_range=EPS_DECAY_RANGE,
-                     logger=DQNAgentLogger(OUTPUT_DIR, save_freq=100))
+                     logger=DQNAgentLogger(OUTPUT_DIR, save_freq=1000))
 
     plate = _STARTUP_PLATE_.format(
         starttime=datetime.datetime.now(),
