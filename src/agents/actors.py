@@ -17,7 +17,22 @@ class FeedForwardActor(core.Actor):
     # TODO: The actor uses a client in order to add data asynchronously.
     """
 
-    def __init__(self, policy, buffer_client, device):
+    def __init__(self, policy, buffer_client=None, device=torch.device("cpu")):
+        """Initialize a FeedForwardActor instance.
+
+        Args:
+            policy (func): A function that maps observations from the environment to a
+                probability distribution over the action space. The function accepts two
+                parameters - an observation and a list of legal actions.
+                    `prob = policy(obs, legal)`
+                The output of the function is a numpy vector giving probabilities for
+                each action of the entire action space. Illegal actions should have a
+                probability of 0.
+            buffer_client (core.Buffer, optional): A client used to pass observations to
+                the buffer. Default value is None, the actor does not save observations.
+            device (torch.device, optional): Determine which device to place observations
+                upon, CPU or GPU. Default value is "cpu".
+        """
         self.policy = policy
         self.buffer_client = buffer_client   # allows to send data to the replay buffer
         self.device = device
@@ -49,10 +64,12 @@ class FeedForwardActor(core.Actor):
 
     def observe_first(self, timestep):
         """Observe a time-step from the agent-environment interaction loop."""
-        self.buffer_client.add_first(timestep)
+        if self.buffer_client is not None:
+            self.buffer_client.add_first(timestep)
 
     def observe(self, action, timestep, is_last=False):
         """Observe a time-step from the agent-environment interaction loop."""
-        self.buffer_client.add(action, timestep, is_last)
+        if self.buffer_client is not None:
+            self.buffer_client.add(action, timestep, is_last)
 
 #

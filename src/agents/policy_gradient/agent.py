@@ -5,6 +5,8 @@ import torch.nn.functional as F
 from src.agents.actors import FeedForwardActor
 from src.agents.agent import Agent
 from src.agents.policy_gradient.learning import PGLearner
+from src.infrastructure.episode_buffer import EpisodeBuffer
+
 
 class PGAgent(Agent):
     """PG agent.
@@ -20,9 +22,8 @@ class PGAgent(Agent):
             actor.
     """
 
-    def __init__(self, policy_network, buffer, discount=0.9, batch_size=1,
-                 learning_rate=1e-4, lr_decay=1.0, decay_steps=1, reg=0.0, clip_grad=None,
-                 stdout=sys.stdout):
+    def __init__(self, policy_network, discount=0.9, episodes=1, learning_rate=1e-4,
+                 lr_decay=1.0, decay_steps=1, reg=0.0, clip_grad=None, stdout=sys.stdout):
         """Initialize a PG Agent instance.
 
         Args:
@@ -30,12 +31,14 @@ class PGAgent(Agent):
             buffer (core.Buffer): A buffer object used to store episodes of experiences.
             discount (float, optional): Discount factor for future rewards.
                 Default values is 0.9.
-            batch_size (int, optional): The number of episodes to be run before performing
+            episodes (int, optional): The number of episodes to be run before performing
                 one gradient update step. This variable gives the number of different
                 episode trajectories used to approximate the value of the policy gradient.
                 Default value is 1.
             learning_rate (float, optional): Learning rate parameter. Default value is 1e-4.
             lr_decay (float, optional): Learning rate decay parameter. Default value is 1.0.
+            decay_steps (int, optional): Every `decay_steps` decay the learning rate by
+                `lr_decay`. Default value is 1.
             reg (float, optional): L2 regularization strength. Default values is 0.0.
             clip_grad (float, optional): Gradient clipping parameter. Default value is None.
         """
@@ -60,13 +63,13 @@ class PGAgent(Agent):
             return probs
 
         device = policy_network.device
-        self.actor = FeedForwardActor(policy, buffer, device)
+        self.buffer = EpisodeBuffer()
+        self.actor = FeedForwardActor(policy, self.buffer, device)
         self.learner = PGLearner(policy_network, config, stdout)
-        self.buffer = buffer
 
-        # Prefill the buffer with `batch_size` different episodes simulated using the current
-        # policy and only then perform one-update step.
-        self.min_observations = batch_size
+        # Prefill the buffer with `episodes` different episodes simulated using the
+        # current policy and only then perform one update step.
+        self.min_observations = episodes
         self.observations_per_step = None
         self._num_observations = 0
 

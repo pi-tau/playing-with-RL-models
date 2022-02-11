@@ -9,7 +9,6 @@ import torch
 from src.agents.policy_gradient.agent import PGAgent
 from src.environment_loop import EnvironmentLoop
 from src.envs.environment import Environment
-from src.infrastructure.episode_buffer import EpisodeBuffer
 from src.networks.mlp import MLPNetwork
 from src.infrastructure.util_funcs import fix_random_seeds, set_printoptions
 
@@ -34,7 +33,7 @@ print(f"Using device: {device}\n", file=stdout)
 
 
 # Initialize the environment.
-env = Environment(layout="testClassic")
+env = Environment(layout="testClassic", num_ghosts=0)
 
 
 # Initialize a policy network, move it to device and prepare for training.
@@ -44,24 +43,21 @@ policy_network = policy_network.to(device)
 
 
 # Initialize a policy gradient agent.
-batch_size = 256
-buffer = EpisodeBuffer()
-agent = PGAgent(policy_network, buffer, discount=0.9, batch_size=batch_size,
-    learning_rate=3e-5, clip_grad=5.0, stdout=stdout)
+episodes = 32
+agent = PGAgent(policy_network, discount=0.99, episodes=episodes,
+    learning_rate=1e-3, clip_grad=5.0, stdout=stdout)
 
 
 # Initialize and run the agent-environment feedback loop.
 iterations = 100
 loop = EnvironmentLoop(agent, env, should_update=True)
 tic = time.time()
-loop.run(episodes=iterations*batch_size, steps=200)
+loop.run(episodes=iterations*episodes, steps=200, log_every=episodes, demo_every=10*episodes)
 toc = time.time()
 print(f"Training on device {device} takes {toc-tic:.3f} seconds", file=stdout)
 
 
-# Display the progress.
-loop.should_update(False)
-env.graphics(True)
-loop.run(episodes=5, steps=30)
+# Close the file stream.
+stdout.close()
 
 #

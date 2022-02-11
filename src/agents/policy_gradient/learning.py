@@ -23,11 +23,7 @@ class PGLearner(core.Learner):
             the value of the learning rate.
         running_return (float): Keeping track of the running return from each episode
             during training.
-        stdout (file): File object (stream) used for standard output of logging
-            information. Default value is `sys.stdout`.
-        train_history (dict): A dictionary storing information during training containing:
-            mean_return (list(float)): A list of the mean returns history.
-            running_return (list(float)): A list of the running returns history.
+        stdout (file): File object (stream) used for standard output of logging information.
     """
 
     def __init__(self, policy_network, config, stdout=sys.stdout):
@@ -47,9 +43,7 @@ class PGLearner(core.Learner):
         """
         self.policy_network = policy_network
         self.config = config
-        self.running_return = None
         self.stdout = stdout
-        self.train_history = {"mean_return":[], "running_return":[]}
 
         # Initialize the policy network optimizer.
         self.optimizer = torch.optim.Adam(
@@ -113,15 +107,6 @@ class PGLearner(core.Learner):
         self.optimizer.step()
         self.scheduler.step()
 
-        # Keep track of the running return.
-        mean_return = torch.mean(torch.sum(rewards, dim=-1))
-        if self.running_return is None: self.running_return = mean_return
-        else: self.running_return = 0.99*self.running_return + 0.01*mean_return
-
-        # Bookkeeping.
-        self.train_history["mean_return"].append(mean_return)
-        self.train_history["running_return"].append(self.running_return)
-
         if verbose:
             probs = F.softmax(logits, dim=-1)
             probs = torch.maximum(probs, torch.tensor(eps))
@@ -135,7 +120,6 @@ class PGLearner(core.Learner):
             tqdm.write(f"Grad norm:          {total_norm: .5f}", file=stdout)
             tqdm.write(f"Avg policy entropy: {avg_policy_ent: .3f}", file=stdout)
             tqdm.write(f"Total num of steps: {torch.sum(masks): .0f}", file=stdout)
-            tqdm.write(f"Running return:     {self.running_return:.4f}", file=stdout)
 
     @torch.no_grad()
     def _discounted_cumulative_returns(self, rewards, masks=None, discount=1.0):
