@@ -1,4 +1,3 @@
-import os
 import sys
 import time
 sys.path.append("../../..")
@@ -14,10 +13,8 @@ from src.infrastructure.util_funcs import fix_random_seeds, set_printoptions
 
 
 # Create file to log output during training.
-# log_dir = "logs"
-# os.makedirs(log_dir, exist_ok=True)
-# stdout = open(os.path.join(log_dir, "train_history.txt"), "w")
-stdout = sys.stdout
+stdout = open("train_history.txt", "w")
+# stdout = sys.stdout
 seed = 0
 
 
@@ -56,11 +53,12 @@ agent = ACAgent(policy_network, value_network,
 
 # Initialize and run the agent-environment feedback loop.
 episodes = 500_000
-loop = EnvironmentLoop(agent, env, should_update=True)
+loop = EnvironmentLoop(agent, env, should_update=True, stdout=stdout)
 tic = time.time()
-loop.run(episodes=episodes, steps=200)
+loop.run(episodes=episodes, steps=200, log_every=100, demo_every=10_000)
 toc = time.time()
-agent.learner.policy_network.save("logs/policy_500k.bin")
+print(f"Training on device {device} takes {toc-tic:.3f} seconds", file=stdout)
+agent.learner.policy_network.save("policy.bin")
 
 
 # Close the file stream.

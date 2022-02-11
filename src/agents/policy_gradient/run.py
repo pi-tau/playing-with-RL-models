@@ -14,10 +14,8 @@ from src.infrastructure.util_funcs import fix_random_seeds, set_printoptions
 
 
 # Create file to log output during training.
-# log_dir = "logs"
-# os.makedirs(log_dir, exist_ok=True)
-# stdout = open(os.path.join(log_dir, "train_history.txt"), "w")
-stdout = sys.stdout
+stdout = open("train_history.txt", "w")
+# stdout = sys.stdout
 seed = 0
 
 
@@ -50,11 +48,12 @@ agent = PGAgent(policy_network, discount=0.99, episodes=episodes,
 
 # Initialize and run the agent-environment feedback loop.
 iterations = 100
-loop = EnvironmentLoop(agent, env, should_update=True)
+loop = EnvironmentLoop(agent, env, should_update=True, stdout=stdout)
 tic = time.time()
 loop.run(episodes=iterations*episodes, steps=200, log_every=episodes, demo_every=10*episodes)
 toc = time.time()
 print(f"Training on device {device} takes {toc-tic:.3f} seconds", file=stdout)
+agent.learner.policy_network.save("policy_noGhosts.bin")
 
 
 # Close the file stream.

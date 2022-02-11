@@ -39,13 +39,18 @@ class EnvironmentLoop:
     def should_update(self, should_update):
         self._should_update = should_update
 
-    def run(self, episodes, steps=1_000_000, log_every=100, demo_every=10_000):
+    def run(self, episodes, steps=1_000_000, log_every=100, demo_every=None):
         """Run the actor-environment feedback loop.
 
         Args:
             episodes (int): Number of episodes to run.
             steps (int, optional): Maximum number of steps for each episode.
                 Default value is 1_000_000.
+            log_every (int, optional): Printout logging information every `log_every`
+                episodes. Default value is 100.
+            demo_every (int, optional): Run a graphical demo simulation every `demo_every`
+                episodes. If `demo_every` is None, then no graphical simulations are run.
+                Default value is None.
         """
         stdout = self.stdout
         self.run_history = {"mean_return":[], "running_return":[]}
@@ -103,7 +108,7 @@ class EnvironmentLoop:
                 total_steps = 0
 
             # Play a demo.
-            if (e + 1) % demo_every == 0:
+            if demo_every is not None and (e + 1) % demo_every == 0:
                 self.environment.graphics(True)
                 timestep = self.environment.reset()
                 for _ in range(steps):
