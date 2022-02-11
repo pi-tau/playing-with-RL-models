@@ -10,7 +10,7 @@ import torch
 
 from src.agents.actors import DQNActor
 from src.agents.dqn.agent import DQNAgent
-from src.agents.dqn.learner import DQNLearner
+from src.agents.dqn.learner import DQNLearner, DoubleDQNLearner
 from src.environment_loop import EnvironmentLoop
 from src.envs.environment import Environment
 from src.networks.mlp import MLPNetwork
@@ -27,6 +27,7 @@ _STARTUP_PLATE_ = \
 
     Device:                             {device}
     Game:                               {game}
+    Algorithm:                          {algorithm}
     Skip Frames:                        {skip_frames}
     Stack Frames:                       {stack_frames}
     Number of Episodes:                 {n_episodes}
@@ -51,7 +52,8 @@ _STARTUP_PLATE_ = \
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--device', choices=['cpu', 'cuda'], type=str, default='cpu')
-    parser.add_argument('--game', action='store', type=str, default='MsPacman-v4')
+    parser.add_argument('--game', action='store', type=str, default='pacman.testClassic')
+    parser.add_argument('--algorithm', choices=['dqn', 'double-dqn'], type=str, default='dqn')
     parser.add_argument('--episodes', action='store', type=int, default=10_000)
     parser.add_argument('--max_steps', action='store', type=int, default=10_000)
     parser.add_argument('--batch_size', action='store', type=int, default=128)
@@ -70,15 +72,15 @@ if __name__ == '__main__':
     # All hyperparameters
     DEVICE = torch.device(args.device)
     GAME = args.game
+    ALGORITHM = args.algorithm
     SKIP_FRAMES = 4
     STACK_FRAMES = 4
     NUM_EPSIODES = args.episodes # int(args.experiences / args.max_steps)
-    # NUM_EXPERIENCES = args.experiences
     MAX_STEPS = args.max_steps
     BATCH_SIZE = args.batch_size
     LEARNING_RATE = args.lr
-    LR_DECAY = 1.0
-    L2_REGULARIZATION = 1e-3
+    LR_DECAY = 0.92
+    L2_REGULARIZATION = 5e-3
     CLIP_GRAD = 10.0
     INITIAL_EPS = args.initial_eps
     FINAL_EPS = args.final_eps
@@ -122,12 +124,16 @@ if __name__ == '__main__':
     # Initialize Deep Q-Learning agent
     buffer = ReplayBuffer(capacity=CAPACITY)
     actor = DQNActor(Q_network, buffer)
-    learner = DQNLearner(Q_network, discount=DISCOUNT, device=DEVICE,
-                         Q_regressions=Q_REGRESSIONS,
-                         target_update_every=TARGET_UPDATE_EVERY,
-                         batch_size=BATCH_SIZE, lr=LEARNING_RATE,
-                         lr_decay=LR_DECAY, reg=L2_REGULARIZATION,
-                         clip_grad=CLIP_GRAD)
+    if ALGORITHM == 'dqn':
+        Learner = DQNLearner
+    elif ALGORITHM == 'double-dqn':
+        Learner = DoubleDQNLearner
+    learner = Learner(Q_network, discount=DISCOUNT, device=DEVICE,
+                      Q_regressions=Q_REGRESSIONS,
+                      target_update_every=TARGET_UPDATE_EVERY,
+                      batch_size=BATCH_SIZE, lr=LEARNING_RATE,
+                      lr_decay=LR_DECAY, reg=L2_REGULARIZATION,
+                      clip_grad=CLIP_GRAD)
     agent = DQNAgent(actor, learner, buffer, min_experiences=MIN_EXPERIENCES,
                      Q_update_every=Q_UPDATE_EVERY, initial_eps=INITIAL_EPS,
                      final_eps=FINAL_EPS, eps_decay_range=EPS_DECAY_RANGE,
@@ -137,6 +143,7 @@ if __name__ == '__main__':
         starttime=datetime.datetime.now(),
         device=DEVICE,
         game=GAME,
+        algorithm=ALGORITHM,
         skip_frames=SKIP_FRAMES,
         stack_frames=STACK_FRAMES,
         n_episodes=NUM_EPSIODES,
