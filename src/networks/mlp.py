@@ -46,10 +46,10 @@ class MLPNetwork(nn.Module, BaseNetwork):
 
         # Store arguments for model initialization.
         # Kwargs dict is used to save and restore the model.
-        self.kwargs = dict(input_size=self.input_size,
-                           hidden_sizes=self.hidden_sizes,
-                           out_size=self.out_size,
-                           dropout_rate=self.dropout_rate)
+        self.kwargs = dict(input_shape=input_shape,
+                           hidden_sizes=hidden_sizes,
+                           out_size=out_size,
+                           dropout_rate=dropout_rate)
 
         # Initialize the model architecture.
         self.num_layers = len(hidden_sizes)
