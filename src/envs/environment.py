@@ -10,7 +10,7 @@ from src import core
 from src.envs.pacman.ghostAgents import RandomGhost
 from src.envs.pacman.graphicsDisplay import PacmanGraphics
 from src.envs.pacman.layout import getLayout
-from src.envs.pacman.pacman import GameState
+from src.envs.pacman.pacman import GameState, SCARED_TIME
 
 
 class Environment(core.Environment):
@@ -248,8 +248,9 @@ class Environment(core.Environment):
 
         # Get ghost positions encoded as boolean vector.
         ghosts = np.zeros((width, height))
-        for x, y in gameState.getGhostPositions():
-            ghosts[int(x), int(y)] += 1
+        for state in gameState.getGhostStates():
+            x, y = state.getPosition()
+            ghosts[int(x), int(y)] += 1 - (state.scaredTimer/SCARED_TIME)
         ghosts = ghosts.reshape(-1)
 
         # Get food positions encoded as boolean vector.
@@ -261,11 +262,8 @@ class Environment(core.Environment):
             capsules[x, y] += 1
         capsules = capsules.reshape(-1)
 
-        # Get scared times for all ghosts.
-        scaredTimes = np.array([s.scaredTimer for s in gameState.getGhostStates()])
-
         # Stack all numpy vectors together.
-        observation = np.concatenate([pacman, ghosts, food, capsules, scaredTimes])
+        observation = np.concatenate([pacman, ghosts, food, capsules])
         return observation.astype(np.float32)
 
     def _observe_onehot(self, gameState):
