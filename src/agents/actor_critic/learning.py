@@ -95,7 +95,7 @@ class ACLearner(core.Learner):
 
         To compute the return `R_t` we will use a one-step bootstrap and for the baseline
         we will use the value of the state `s_t`. Thus, we arrive at the "advantage" for
-        the state-action pair `s_t`, `a_t`:
+        the state-action pair `(s_t, a_t)`:
             A(s_t, a_t) = R_t - b(s_t)
             A(s_t, a_t) = r_t + V(s_(t+1)) - V(s_t).
 
@@ -126,35 +126,27 @@ class ACLearner(core.Learner):
                 Default value is True.
         """
         device = self.policy_network.device
+        stdout = self.stdout
+        discount = self.config["discount"]
+        batch_size = self.config["batch_size"]
+        clip_grad = self.config["clip_grad"]
+        eps = torch.finfo(torch.float32).eps
 
         # Fetch observation experiences from the buffer.
         prev_obs, actions, rewards, next_obs = buffer.draw(device=device)
 
         # Fit the value network.
-        self._update_value_net(prev_obs, rewards, next_obs, verbose)
-
-        # Update the policy network.
-        self._update_policy_net(prev_obs, actions, rewards, next_obs, verbose)
-
-    def _update_value_net(self, prev_obs, rewards, next_obs, verbose):
-        stdout = self.stdout
-        device = self.value_network.device
-        batch_size = self.config["batch_size"]
-        clip_grad = self.config["clip_grad"]
-        discount = self.config["discount"]
-
-        tqdm.write("#-- updating value network --#", file=stdout)
-        data_size = len(prev_obs)
-        total_loss = 0.0
-        total_grad_norm = 0.0
-        idx_permutation = torch.randperm(data_size).to(device)
-        for i in range(0, data_size, batch_size):
-            idxs = idx_permutation[i : i+batch_size]
+        total_loss, total_grad_norm, i = 0.0, 0.0, 0
+        for idxs in torch.randperm(len(prev_obs)).to(device).split(batch_size):
+            # Compute the targets for the value network using one-step bootstrapping.
             prev_values = self.value_network(prev_obs[idxs]).squeeze(dim=-1)
             next_values = self.value_network(next_obs[idxs]).squeeze(dim=-1)
             targets = rewards[idxs] + discount * next_values
-            value_loss = F.mse_loss(prev_values, targets, reduction="none")
-            value_loss = 0.5 * torch.mean(value_loss)
+
+            # Compute the loss for the value network.
+            value_loss = 0.5 * F.mse_loss(prev_values, targets, reduction="mean")
+
+            # Perform backward pass for the value network.
             self.value_optimizer.zero_grad()
             value_loss.backward(retain_graph=True)
             total_norm = torch.norm(
@@ -166,17 +158,9 @@ class ACLearner(core.Learner):
 
             total_loss += value_loss
             total_grad_norm += total_norm
+            i += 1
 
-        if verbose:
-            tqdm.write(f"  Avg Value Loss:  {total_loss / i:.5f}", file=stdout)
-            tqdm.write(f"  Avg Grad norm:   {total_grad_norm / i:.5f}", file=stdout)
-
-    def _update_policy_net(self, prev_obs, actions, rewards, next_obs, verbose):
-        stdout = self.stdout
-        discount = self.config["discount"]
-        clip_grad = self.config["clip_grad"]
-        eps = torch.finfo(torch.float32).eps
-
+        # Update the policy network.
         # Compute the advantages using the critic,
         prev_values = self.value_network(prev_obs).squeeze(dim=-1)
         next_values = self.value_network(next_obs).squeeze(dim=-1)
@@ -188,7 +172,7 @@ class ACLearner(core.Learner):
         weighted_nll = torch.mul(nll, advantages)
         loss = torch.mean(weighted_nll)
 
-        # Perform backward pass.
+        # Perform backward pass for the policy network.
         self.policy_optimizer.zero_grad()
         loss.backward()
         total_norm = torch.norm(
@@ -198,11 +182,15 @@ class ACLearner(core.Learner):
         self.policy_optimizer.step()
         self.policy_scheduler.step()
 
+        # Maybe log training information.
         if verbose:
             probs = F.softmax(logits, dim=-1)
             probs = torch.maximum(probs, torch.tensor(eps))
             avg_policy_ent = -torch.mean(torch.sum(probs*torch.log(probs), dim=-1))
-            tqdm.write("#-- updating policy network --#", file=stdout)
+            tqdm.write("#-- value network update --#", file=stdout)
+            tqdm.write(f"  Avg Value Loss:  {total_loss / i:.5f}", file=stdout)
+            tqdm.write(f"  Avg Grad norm:   {total_grad_norm / i:.5f}", file=stdout)
+            tqdm.write("#-- policy network update --#", file=stdout)
             tqdm.write(f"  Pseudo loss:        {loss.item(): .5f}", file=stdout)
             tqdm.write(f"  Grad norm:          {total_norm: .5f}", file=stdout)
             tqdm.write(f"  Avg policy entropy: {avg_policy_ent: .3f}", file=stdout)
