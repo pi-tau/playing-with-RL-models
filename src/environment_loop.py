@@ -7,8 +7,8 @@ class EnvironmentLoop:
     The actor is updated at every step of the feedback loop if `should_update=True`.
 
     This can be used as:
-        loop = EnvironmentLoop(environment, actor, should_update=True)
-        loop.run(num_episodes, steps)
+        `loop = EnvironmentLoop(environment, actor, should_update=True)`
+        `loop.run(num_episodes, steps)`
 
     Attributes:
         actor (core.Actor): An actor object used to interact with the environment.

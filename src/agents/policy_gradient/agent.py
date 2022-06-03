@@ -67,7 +67,7 @@ class PGAgent(Agent):
         self.actor = FeedForwardActor(policy, self.buffer, device)
         self.learner = PGLearner(policy_network, config, stdout)
 
-        # Prefill the buffer with `episodes` different episodes simulated using the
+        # Pre-fill the buffer with `episodes` different episodes simulated using the
         # current policy and only then perform one update step.
         self.min_observations = episodes
         self.observations_per_step = None

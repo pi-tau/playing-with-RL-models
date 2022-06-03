@@ -70,7 +70,7 @@ class MLPNetwork(nn.Module, BaseNetwork):
         Args:
             x (torch.Tensor): Tensor of shape (b, q), or (b, t, q), giving the current
                 state of the environment, where b = batch size, t = number of time steps,
-                q = size of the quantum system (2 ** num_qubits).
+                q = size of the environment state.
 
         Returns:
             out (torch.Tensor): Tensor of shape (b, num_actions), or (b, t, num_acts),

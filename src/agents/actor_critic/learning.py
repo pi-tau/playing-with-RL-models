@@ -118,7 +118,7 @@ class ACLearner(core.Learner):
 
         Using the fitted value network compute the advantage `A(s_t, a_t)` for every state-
         action pair in the batch of experiences. Compute the "pseudo-loss" as the mean
-        accross all sampled experiences of the batch.
+        across all sampled experiences of the batch.
 
         Args:
             buffer (core.Buffer): A buffer object used to store steps of experiences.

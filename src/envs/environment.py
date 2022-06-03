@@ -1,6 +1,4 @@
-from math import sqrt
 import math
-from sqlite3 import InternalError
 import sys
 sys.path.append("../..")
 
@@ -300,7 +298,7 @@ class Environment(core.Environment):
                 food_onehot.append(0)
             i += 1
         if j != len(food_positions):
-            raise InternalError("failed to construct one-hot encoding for food positions")
+            raise ValueError("failed to construct one-hot encoding for food positions")
         food_encoding = int("0" + "".join(str(x) for x in food_onehot), 2)
         food_cap = 2 ** len(self._initial_food)
 
@@ -315,7 +313,7 @@ class Environment(core.Environment):
                 capsule_onehot.append(0)
             i += 1
         if j != len(capsule_positions):
-            raise InternalError("failed to construct one-hot encoding for food positions")
+            raise ValueError("failed to construct one-hot encoding for food positions")
         capsule_encoding = int("0" + "".join(str(x) for x in capsule_onehot), 2)
         capsule_cap = 2 ** len(self._initial_caps)
 
@@ -334,8 +332,8 @@ class Environment(core.Environment):
 def _manhattan_distance(x1, y1, x2, y2):
     return abs(x1 - x2) + abs(y1 - y2)
 
-def _euclidian_distance(x1, y1, x2, y2):
-    return sqrt((x1 - x2)**2 + (y1 - y2)**2)
+def _euclidean_distance(x1, y1, x2, y2):
+    return math.sqrt((x1 - x2)**2 + (y1 - y2)**2)
 
 def _maze_distance(x1, y1, x2, y2, gameState):
     # TODO:

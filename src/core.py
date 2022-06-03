@@ -88,9 +88,9 @@ class Actor(abc.ABC):
         """This method may implement logic for updating the policy network of the actor.
         However, this is usually done using a `core.Learner` object.
 
-        # TODO:
-        # Fetch the updated weights of the policy network after the learner has updated
-        # them. The learner will be updating the weights asynchronously.
+        #### TODO:
+        Fetch the updated weights of the policy network after the learner has updated
+        them. The learner will be updating the weights asynchronously.
         """
 
 
@@ -103,9 +103,9 @@ class Learner(abc.ABC):
     as a parameter to the `step` method and run updates using data from this dataset.
     The dataset is provided by a `core.Buffer` object.
 
-    # TODO:
-    # Data will be read from this dataset asynchronously and this is primarily useful when
-    # the dataset is filled by an external process.
+    #### TODO:
+    Data will be read from this dataset asynchronously and this is primarily useful when
+    the dataset is filled by an external process.
     """
 
     @abc.abstractmethod
