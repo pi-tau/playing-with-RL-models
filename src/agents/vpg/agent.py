@@ -4,7 +4,7 @@ import torch.nn.functional as F
 
 from src.agents.actors import FeedForwardActor
 from src.agents.agent import Agent
-from src.agents.policy_gradient.learning import PGLearner
+from src.agents.vpg.learning import PGLearner
 from src.infrastructure.episode_buffer import EpisodeBuffer
 
 
