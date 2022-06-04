@@ -37,6 +37,7 @@ class PGLearner(core.Learner):
                 lr_decay (float): Learning rate decay parameter.
                 decay_steps (int): Every `decay_steps` decay the learning rate by `lr_decay`.
                 reg (float): L2 regularization strength.
+                ereg (float): Entropy regularization temperature.
                 clip_grad (float): Parameter for gradient clipping by norm.
             stdout (file, optional): File object (stream) used for standard output of
                 logging information. Default value is `sys.stdout`.
@@ -82,17 +83,19 @@ class PGLearner(core.Learner):
         device = self.policy_network.device
         discount = self.config["discount"]
         clip_grad = self.config["clip_grad"]
+        ereg = self.config["ereg"]
         eps = torch.finfo(torch.float32).eps
 
         # Fetch trajectories from the buffer and run the states through the policy network.
         observations, actions, rewards, masks = buffer.draw(device=device)
+        logits = self.policy_network(observations)
 
         # Compute the discounted cumulative returns and normalize them.
         q_values = self._discounted_cumulative_returns(rewards, masks, discount)
+        q_values = q_values - 0.5 * ereg * self._episode_entropy(logits, actions, masks)
         q_values = self._normalized_returns(q_values, masks)
 
         # Compute the loss.
-        logits = self.policy_network(observations)
         nll = F.cross_entropy(logits.permute(0,2,1), actions, reduction="none")
         weighted_nll = torch.mul(masks * nll, q_values)
         loss = torch.sum(weighted_nll) / torch.sum(masks)
@@ -219,5 +222,42 @@ class PGLearner(core.Learner):
         masked_stds = torch.maximum(torch.sqrt(masked_vars), torch.Tensor([eps]).to(device))
         masked_stds = masks * torch.tile(masked_stds, dims=(batch_size, 1))
         return (returns - masked_means) / masked_stds
+
+    @torch.no_grad()
+    def _episode_entropy(self, logits, actions, masks):
+        """Compute the entropy regularization term.
+        Check out: https://arxiv.org/pdf/1805.00909.pdf
+
+        Args:
+            logits (torch.Tensor): Tensor of shape (batch_size, steps, num_act), giving
+                the logits for every action at every time step.
+            actions (torch.Tensor): Tensor of shape (b, t), giving the actions selected by
+                the policy during rollout.
+            masks (torch.Tensor): Boolean tensor of shape (batch_size, steps), that masks
+                out the part of the trajectory after it has finished.
+
+        Returns:
+            episode_entropy (torch.Tensor): Tensor of shape (b, t), giving the entropy
+                regularization terms for the entire episodes. For every episode the entropy
+                of the entire trajectory is copied over all time steps.
+        """
+        # log_probs = F.log_softmax(logits, dim=-1)
+        # https://medium.com/analytics-vidhya/understanding-indexing-with-pytorch-gather-33717a84ebc4
+        # step_entropy = log_probs.gather(index=actions.unsqueeze(dim=2), dim=2).squeeze(dim=2)
+
+        # The `cross_entropy` function returns the negative log-likelihood (nll). Taking
+        # the negative of the result gives the entropy.
+        step_entropy = -F.cross_entropy(logits.permute(0,2,1), actions, reduction="none")
+
+        # The episode entropy is computed as the sum of entropies for the individual steps.
+        # The true length of the episode is taken into account by masking-out the finished
+        # part. The result is a 1D Tensor of shape (b,) giving the entropies for the
+        # different trajectories.
+        # This tensor is then broadcast into the shape (b, t) and the part of the episodes
+        # that is finished is again masked.
+        _, steps = actions.shape
+        episode_entropy = torch.sum(masks * step_entropy, dim=-1, keepdim=True)
+        episode_entropy = masks * torch.tile(episode_entropy, dims=(1, steps))
+        return episode_entropy
 
 #

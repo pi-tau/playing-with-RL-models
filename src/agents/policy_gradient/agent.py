@@ -23,7 +23,8 @@ class PGAgent(Agent):
     """
 
     def __init__(self, policy_network, discount=0.9, batch_size=1, learning_rate=1e-4,
-                 lr_decay=1.0, decay_steps=1, reg=0.0, clip_grad=None, stdout=sys.stdout):
+                 lr_decay=1.0, decay_steps=1, reg=0.0, ereg=0.0, clip_grad=None,
+                 stdout=sys.stdout):
         """Initialize a PG Agent instance.
 
         Args:
@@ -38,6 +39,7 @@ class PGAgent(Agent):
             decay_steps (int, optional): Every `decay_steps` decay the learning rate by
                 `lr_decay`. Default value is 1.
             reg (float, optional): L2 regularization strength. Default values is 0.0.
+            ereg (float, optional): Entropy regularization temperature. Default values is 0.0.
             clip_grad (float, optional): Gradient clipping parameter. Default value is None.
             stdout (file, optional): File object (stream) used for standard output of
                 logging information. Default value is `sys.stdout`.
@@ -49,6 +51,7 @@ class PGAgent(Agent):
             "lr_decay"          : lr_decay,
             "decay_steps"       : decay_steps,
             "reg"               : reg,
+            "ereg"              : ereg,
             "clip_grad"         : clip_grad,
         }
         # The policy for the actor uses the scores returned by the network to compute a
