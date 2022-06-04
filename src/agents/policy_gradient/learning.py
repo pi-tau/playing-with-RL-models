@@ -70,7 +70,7 @@ class PGLearner(core.Learner):
             - compute the return `R_t` as the discounted reward to go
             - compute the log-probability of selecting action `a_t` while in state `s_t`
 
-        Compute the "pseudo-loss" as the mean accross all time-steps from all episodes of
+        Compute the "pseudo-loss" as the mean across all time-steps from all episodes of
         the batch.
 
         Args:
@@ -84,7 +84,7 @@ class PGLearner(core.Learner):
         clip_grad = self.config["clip_grad"]
         eps = torch.finfo(torch.float32).eps
 
-        # Fetch trajectories from the buffer.
+        # Fetch trajectories from the buffer and run the states through the policy network.
         observations, actions, rewards, masks = buffer.draw(device=device)
 
         # Compute the discounted cumulative returns and normalize them.
@@ -124,12 +124,6 @@ class PGLearner(core.Learner):
     @torch.no_grad()
     def _discounted_cumulative_returns(self, rewards, masks=None, discount=1.0):
         """Compute the discounted cumulative reward-to-go at every time-step `t`.
-
-        "Don't let the past destract you"
-        Taking a gradient step pushes up the log-probabilities of each action in
-        proportion to the sum of all rewards ever obtained. However, agents should only
-        reinforce actions based on rewards obtained after they are taken.
-        Check out: https://spinningup.openai.com/en/latest/spinningup/extra_pg_proof1.html
 
         Multiplying the rewards by a discount factor can be interpreted as encouraging the
         agent to focus more on the rewards that are closer in time. This can also be
@@ -206,15 +200,24 @@ class PGLearner(core.Learner):
         """
         if masks is None:
             masks = torch.ones_like(returns)
+
+        device = self.policy_network.device
+        batch_size, _ = returns.shape
+        eps = torch.finfo(torch.float32).eps
+
         # When working with a batch of trajectories, only the active trajectories are
         # considered for calculating the mean and the std.
-        device = self.policy_network.device
-        eps = torch.finfo(torch.float32).eps
-        masked_means = torch.sum(returns, dim=0) / torch.maximum(
+        # Means and stds are calculated using an aggregate function and thus their
+        # shape is (1, steps). In order to broadcast them correctly we must take into
+        # account the length of the active part of the trajectories. Thus, broadcasting
+        # is performed manually using `np.tile` and the inactive parts are masked-out.
+        masked_means = torch.sum(masks * returns, dim=0) / torch.maximum(
                         torch.sum(masks, dim=0), torch.Tensor([1]).to(device))
-        masked_vars = torch.sum(torch.square(returns-masked_means), dim=0) / torch.maximum(
+        masked_means = masks * torch.tile(masked_means, dims=(batch_size, 1))
+        masked_vars = torch.sum(torch.square(masks * returns-masked_means), dim=0) / torch.maximum(
                         torch.sum(masks, dim=0), torch.Tensor([1]).to(device))
         masked_stds = torch.maximum(torch.sqrt(masked_vars), torch.Tensor([eps]).to(device))
+        masked_stds = masks * torch.tile(masked_stds, dims=(batch_size, 1))
         return (returns - masked_means) / masked_stds
 
 #

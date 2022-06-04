@@ -56,13 +56,13 @@ class Environment(abc.ABC):
     def observable_shape(self):
         """The shape of the numpy array representing the observable state of the environment."""
 
-    @abc.abstractmethod
     def graphics(self, graphics):
         """Set a boolean flag whether a graphical interface should be displayed."""
+        raise NotImplementedError("Method 'graphics' is not implemented.")
 
-    @abc.abstractmethod
     def close(self):
         """Stop the environment engine."""
+        pass
 
 
 class Actor(abc.ABC):

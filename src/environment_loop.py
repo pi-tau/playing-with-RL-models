@@ -60,7 +60,7 @@ class EnvironmentLoop:
         best_return = -float("inf")
         total_steps = 0
         for e in tqdm(range(episodes)):
-            # At the begining of each episode reset the environment and observe the
+            # At the beginning of each episode reset the environment and observe the
             # initial state.
             timestep = self.environment.reset()
             self.actor.observe_first(timestep)
@@ -107,7 +107,7 @@ class EnvironmentLoop:
                 best_return = -float("inf")
                 total_steps = 0
 
-            # Play a demo.
+            # Maybe play a demo.
             if demo_every is not None and (e + 1) % demo_every == 0:
                 self.environment.graphics(True)
                 timestep = self.environment.reset()

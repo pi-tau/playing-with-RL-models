@@ -22,7 +22,7 @@ class PGAgent(Agent):
             actor.
     """
 
-    def __init__(self, policy_network, discount=0.9, episodes=1, learning_rate=1e-4,
+    def __init__(self, policy_network, discount=0.9, batch_size=1, learning_rate=1e-4,
                  lr_decay=1.0, decay_steps=1, reg=0.0, clip_grad=None, stdout=sys.stdout):
         """Initialize a PG Agent instance.
 
@@ -31,16 +31,16 @@ class PGAgent(Agent):
             buffer (core.Buffer): A buffer object used to store episodes of experiences.
             discount (float, optional): Discount factor for future rewards.
                 Default values is 0.9.
-            episodes (int, optional): The number of episodes to be run before performing
-                one gradient update step. This variable gives the number of different
-                episode trajectories used to approximate the value of the policy gradient.
-                Default value is 1.
+            batch_size (int, optional): The number of episodes in the batch used to perform
+                one gradient update step. Default value is 1.
             learning_rate (float, optional): Learning rate parameter. Default value is 1e-4.
             lr_decay (float, optional): Learning rate decay parameter. Default value is 1.0.
             decay_steps (int, optional): Every `decay_steps` decay the learning rate by
                 `lr_decay`. Default value is 1.
             reg (float, optional): L2 regularization strength. Default values is 0.0.
             clip_grad (float, optional): Gradient clipping parameter. Default value is None.
+            stdout (file, optional): File object (stream) used for standard output of
+                logging information. Default value is `sys.stdout`.
         """
         super().__init__()
         config = {
@@ -67,9 +67,9 @@ class PGAgent(Agent):
         self.actor = FeedForwardActor(policy, self.buffer, device)
         self.learner = PGLearner(policy_network, config, stdout)
 
-        # Pre-fill the buffer with `episodes` different episodes simulated using the
+        # Pre-fill the buffer with `batch_size` different episodes simulated using the
         # current policy and only then perform one update step.
-        self.min_observations = episodes
+        self.min_observations = batch_size
         self.observations_per_step = None
         self._num_observations = 0
 
