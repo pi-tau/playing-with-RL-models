@@ -8,6 +8,8 @@ import sys
 import time
 sys.path.append("..")
 
+import torch
+
 from src.networks.mlp import MLPNetwork
 from src.agents.vpg.agent import PGAgent
 from src.envs.qubit_env import Environment
@@ -43,6 +45,7 @@ parser.add_argument("--clip_grad", dest="clip_grad", type=float,
 parser.add_argument("--dropout", dest="dropout", type=float, default=0.0)
 parser.add_argument("--log_every", dest="log_every", type=int, default=100)
 parser.add_argument("--test_every", dest="test_every", type=int, default=1000)
+parser.add_argument("--device", dest="device", type=str, default="cpu")
 args = parser.parse_args()
 
 
@@ -62,12 +65,18 @@ stdout = open(log_file, "w")
 # Create the environment.
 env = Environment(args.num_qubits, epsi=args.epsi)
 
+if args.device == "cuda":
+    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+else:
+    device = torch.device("cpu")
 
 # Initialize the policy network and the agent.
 input_shape = env.shape
 hidden_dims = [64, 64]
 output_size = env.num_actions()
 policy_network = MLPNetwork(input_shape, hidden_dims, output_size, args.dropout)
+policy_network.train()
+policy_network = policy_network.to(device)
 agent = PGAgent(policy_network, discount=1., batch_size=args.batch_size,
     learning_rate=args.learning_rate, lr_decay=args.lr_decay, reg=args.reg,
     ereg=args.ereg, clip_grad=args.clip_grad, stdout=stdout)
