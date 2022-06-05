@@ -14,8 +14,9 @@ class EnvironmentLoop:
         actor (core.Actor): An actor object used to interact with the environment.
         environment (core.Environment): An environment object.
         run_history (dict): A dictionary storing information containing:
-            mean_return (list(float)): A list of the mean returns history.
+            returns (list(float)): A list of the returns history.
             running_return (list(float)): A list of the running returns history.
+            nsteps (list(float)): A list of the number of episode steps history.
         stdout (file): File object (stream) used for standard output of logging information.
     """
 
@@ -53,7 +54,11 @@ class EnvironmentLoop:
                 Default value is None.
         """
         stdout = self.stdout
-        self.run_history = {"mean_return":[], "running_return":[]}
+        self.run_history = {
+            "returns": [],
+            "running_return": [],
+            "nsteps": [],
+        }
 
         running_return = None
         total_return = 0.0
@@ -95,12 +100,15 @@ class EnvironmentLoop:
             best_return = max(best_return, episode_return)
             total_steps += i
 
-            # Bookkeeping and printout logging information.
+            # Bookkeeping.
+            self.run_history["returns"].append(episode_return)
+            self.run_history["running_return"].append(running_return)
+            self.run_history["nsteps"].append(i)
+
+            # Printout logging information.
             if (e + 1) % log_every == 0:
                 mean_return = total_return / log_every
                 avg_steps = total_steps // log_every
-                self.run_history["mean_return"].append(mean_return)
-                self.run_history["running_return"].append(running_return)
                 tqdm.write("Episode ({}/{}); Running/Mean/Best return: {:.2f}/{:.2f}/{:.2f}; Avg steps: {}".format(
                     e+1, episodes, running_return, mean_return, best_return, avg_steps), file=stdout)
                 total_return = 0.0

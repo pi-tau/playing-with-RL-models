@@ -12,6 +12,7 @@ from src.networks.mlp import MLPNetwork
 from src.agents.vpg.agent import PGAgent
 from src.envs.qubit_env import Environment
 from src.environment_loop import EnvironmentLoop
+from src.infrastructure.logging import plot_with_averaged_curves
 from src.infrastructure.util_funcs import fix_random_seeds, set_printoptions
 
 
@@ -79,5 +80,12 @@ loop.run(args.num_iter * args.batch_size, args.steps,
     log_every=args.batch_size * args.log_every)
 toc = time.time()
 print(f"Training took {toc-tic:.3f} seconds.", file=stdout)
+
+
+# Plot the results from the environment loop.
+plot_with_averaged_curves(loop.run_history["returns"], avg_every=args.batch_size,
+    label="Return", figname=os.path.join(log_dir, "returns.png"))
+plot_with_averaged_curves(loop.run_history["nsteps"], avg_every=args.batch_size,
+    label="nsteps", figname=os.path.join(log_dir, "nsteps.png"))
 
 #
