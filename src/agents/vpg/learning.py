@@ -217,11 +217,10 @@ class PGLearner(core.Learner):
         masked_means = torch.sum(masks * returns, dim=0) / torch.maximum(
                         torch.sum(masks, dim=0), torch.Tensor([1]).to(device))
         masked_means = masks * torch.tile(masked_means, dims=(batch_size, 1))
-        masked_vars = torch.sum(torch.square(masks * returns-masked_means), dim=0) / torch.maximum(
+        masked_vars = torch.sum(torch.square(masks*returns-masked_means), dim=0) / torch.maximum(
                         torch.sum(masks, dim=0), torch.Tensor([1]).to(device))
         masked_stds = torch.maximum(torch.sqrt(masked_vars), torch.Tensor([eps]).to(device))
-        masked_stds = masks * torch.tile(masked_stds, dims=(batch_size, 1))
-        return (returns - masked_means) / masked_stds
+        return (masks * returns - masked_means) / masked_stds
 
     @torch.no_grad()
     def _episode_entropy(self, logits, actions, masks):
