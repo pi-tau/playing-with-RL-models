@@ -1,3 +1,4 @@
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -44,6 +45,8 @@ def logPlot(figname, xs=None, funcs=[], legends=[None], labels={}, fmt=["--k"],
     ax.tick_params(axis="both", which="both", labelsize=fontsize)
     ax.grid(which="major", linestyle="--", linewidth=0.5)
     ax.grid(which="minor", linestyle="--", linewidth=0.3)
+    ax.xaxis.set_major_formatter(
+        mpl.ticker.FuncFormatter(lambda x, pos: f"{x/1000:.0f}k" if x > 0 else "0"))
 
     # Plot curves.
     for x, f, l, c, w in zip(xs, funcs, legends, fmt, lw):
@@ -65,7 +68,7 @@ def plot_with_averaged_curves(ys, avg_every, label, figname):
             xs=[np.arange(0, num_iter+avg_every, avg_every)],
             funcs=[avg_ys],
             legends=["avg_"+label],
-            labels={"x":"Iteration", "y":label},
+            labels={"x":"Episode", "y":label},
             fmt=["--r",],
             lw=[0.4,],
             figtitle="Agent Performance")

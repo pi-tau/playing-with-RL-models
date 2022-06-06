@@ -110,6 +110,10 @@ class PGLearner(core.Learner):
         self.optimizer.step()
         self.scheduler.step()
 
+        # # TODO:
+        # if verbose:
+        #     self.logger.write(data)
+
         if verbose:
             probs = F.softmax(logits, dim=-1)
             probs = torch.maximum(probs, torch.tensor(eps))
@@ -220,7 +224,7 @@ class PGLearner(core.Learner):
         masked_vars = torch.sum(torch.square(masks*returns-masked_means), dim=0) / torch.maximum(
                         torch.sum(masks, dim=0), torch.Tensor([1]).to(device))
         masked_stds = torch.maximum(torch.sqrt(masked_vars), torch.Tensor([eps]).to(device))
-        return (masks * returns - masked_means) / masked_stds
+        return (masks * returns - masked_means) #/ masked_stds
 
     @torch.no_grad()
     def _episode_entropy(self, logits, actions, masks):

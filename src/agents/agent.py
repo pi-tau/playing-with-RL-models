@@ -47,14 +47,14 @@ class Agent(core.Actor):
         self._num_observations += 1
         self.actor.observe(action, timestep, is_last)
 
-    def update(self):
+    def update(self, verbose=True):
         """Update the policy network by calling the `core.Learner.step()` method multiple
         times. The number of update steps made depends on the number of experiences stored
         in the buffer.
         """
         num_steps = self._calc_num_steps()
         for _ in range(num_steps):
-            self.learner.step(self.buffer)
+            self.learner.step(self.buffer, verbose)
             self._num_observations = 0
         # TODO: Asynchronous update of policy network weights.
         # if num_steps > 0:

@@ -65,6 +65,8 @@ class EnvironmentLoop:
         best_return = -float("inf")
         total_steps = 0
         for e in tqdm(range(episodes)):
+            verbose = (e+1) % log_every == 0
+
             # At the beginning of each episode reset the environment and observe the
             # initial state.
             timestep = self.environment.reset()
@@ -86,7 +88,7 @@ class EnvironmentLoop:
 
                 # Maybe update the actor policy network.
                 if self._should_update:
-                    self.actor.update()
+                    self.actor.update(verbose)
 
                 # If the episode is finished break the loop.
                 if timestep.done:
@@ -106,7 +108,7 @@ class EnvironmentLoop:
             self.run_history["nsteps"].append(i)
 
             # Printout logging information.
-            if (e + 1) % log_every == 0:
+            if verbose:
                 mean_return = total_return / log_every
                 avg_steps = total_steps // log_every
                 tqdm.write("Episode ({}/{}); Running/Mean/Best return: {:.2f}/{:.2f}/{:.2f}; Avg steps: {}".format(

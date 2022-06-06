@@ -1,5 +1,5 @@
 """
-python3 rl_disentangle.py -q 5 -b 1024 -i 5001 --steps 40 --ereg 0.01
+python3 rl_disentangle.py -q 5 -b 1024 -i 5000 --steps 40 --ereg 0.01
 """
 
 import argparse
@@ -72,7 +72,7 @@ else:
 
 # Initialize the policy network and the agent.
 input_shape = env.shape
-hidden_dims = [64, 64]
+hidden_dims = [4096, 4096, 512]
 output_size = env.num_actions()
 policy_network = MLPNetwork(input_shape, hidden_dims, output_size, args.dropout)
 policy_network.train()
@@ -86,15 +86,16 @@ agent = PGAgent(policy_network, discount=1., batch_size=args.batch_size,
 tic = time.time()
 loop = EnvironmentLoop(agent, env, stdout=stdout)
 loop.run(args.num_iter * args.batch_size, args.steps,
-    log_every=args.batch_size * args.log_every)
+    log_every=args.log_every * args.batch_size)
 toc = time.time()
 print(f"Training took {toc-tic:.3f} seconds.", file=stdout)
 
 
 # Plot the results from the environment loop.
-plot_with_averaged_curves(loop.run_history["returns"], avg_every=args.batch_size,
+avg_every = args.log_every * args.batch_size
+plot_with_averaged_curves(loop.run_history["returns"], avg_every=avg_every,
     label="Return", figname=os.path.join(log_dir, "returns.png"))
-plot_with_averaged_curves(loop.run_history["nsteps"], avg_every=args.batch_size,
+plot_with_averaged_curves(loop.run_history["nsteps"], avg_every=avg_every,
     label="nsteps", figname=os.path.join(log_dir, "nsteps.png"))
 
 #
