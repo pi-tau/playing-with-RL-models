@@ -1,8 +1,0 @@
-# Virtual Environment
-.venv
-
-# Jupyter Notebook
-.ipynb_checkpoints
-
-# Byte-compiled Files
-__pycache__
