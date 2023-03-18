@@ -63,12 +63,11 @@ def pg_plays_LunarLander():
     # values are further clipped to stay in the recommended parameter space.
     num_envs = 16
     steps_limit = 500
-    env = gym.wrappers.VectorListInfo(
+    env = gym.wrappers.RecordEpisodeStatistics(
         gym.vector.AsyncVectorEnv([
             lambda:
             # gym.wrappers.TransformReward(   # Rewards are scaled and clipped.
             # gym.wrappers.NormalizeReward(
-            gym.wrappers.RecordEpisodeStatistics(
                 gym.make(
                     "LunarLander-v2",
                     gravity=np.clip(normal(-10.0, 1.0), -11.99, -0.01),
@@ -77,7 +76,7 @@ def pg_plays_LunarLander():
                     turbulence_power=np.clip(normal(1.5, 0.5), 0.01, 1.99),
                     max_episode_steps=steps_limit,
                 )
-            )#), lambda r: np.clip(r, -10, 10))
+            #), lambda r: np.clip(r, -10, 10))
 
             for _ in range(num_envs)
         ])
@@ -90,12 +89,19 @@ def pg_plays_LunarLander():
     value_network = MLP(in_shape, [64, 64], 1).to(device)
     # agent = VPGAgent(policy_network, value_network, config={
     agent = PPOAgent(policy_network, value_network, config={
-        "policy_lr" : 3e-4,
-        "value_lr"  : 3e-4,
-        "discount"  : 0.99,
-        "batch_size": 128,
-        "clip_grad" : 1.,
+        "policy_lr"  : 3e-4,
+        "value_lr"   : 3e-4,
+        "discount"   : 0.99,
+        "batch_size" : 128,
+        "clip_grad"  : 1.,
         "entropy_reg": 0.01,
+
+        # PPO-specific
+        "pi_clip" : 0.2,
+        "vf_clip" : 100.,
+        "tgt_KL"  : 0.02,
+        "n_epochs": 3,
+        "lamb"    : 0.95,
     })
 
     # Run the environment loop
