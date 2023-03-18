@@ -16,7 +16,7 @@ class PGAgent:
         the optimizers for updating the neural networks.
 
         Args:
-            policy_network: torch.nn Module.
+            policy_network: torch.nn Module
             value_network: torch.nn Module, optional
                 Value network used for computing the baseline.
             config: dict, optional
@@ -30,7 +30,7 @@ class PGAgent:
                 batch_size: int, optional
                     Batch size for iterating over the set of experiences. Default: 128.
                 clip_grad: float, optional
-                    Threshold for gradient norm clipping. Default: 10.
+                    Threshold for gradient norm clipping. Default: 1.
                 entropy_reg: float, optional
                     Entropy regularization factor. Default: 0.
         """
@@ -48,7 +48,7 @@ class PGAgent:
         value_lr = config.get("value_lr", 3e-4)
         self.discount = config.get("discount", 1.)
         self.batch_size = config.get("batch_size", 128)
-        self.clip_grad = config.get("clip_grad", 10.)
+        self.clip_grad = config.get("clip_grad", 1.)
         self.entropy_reg = config.get("entropy_reg", 0.)
 
         # Initialize the optimizers.
@@ -72,10 +72,8 @@ class PGAgent:
     def save(self, dir):
         """Save the agent at the provided folder location."""
         os.makedirs(dir, exist_ok=True)
-        # Save the policy and the value networks.
-        torch.save(self.policy_network.state_dict(), os.path.join(dir, "policy_state_dict.pt"))
-        if self.value_network is not None:
-            torch.save(self.value_network.state_dict(), os.path.join(dir, "value_state_dict.pt"))
+        # Save the agent.
+        torch.save(self, os.path.join(dir, "agent.pt"))
         # Save the training history as a pickle file.
         with open(os.path.join(dir, "train_history.pickle"), "wb") as f:
             pickle.dump(self.train_history, f, protocol=pickle.HIGHEST_PROTOCOL)
