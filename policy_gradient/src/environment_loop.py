@@ -1,3 +1,4 @@
+import pickle
 import os
 import time
 
@@ -40,13 +41,14 @@ def environment_loop(seed, agent, env, num_iters, steps, log_dir, demo=None):
     run_ret, run_len = None, None
     for i in tqdm(range(num_iters)):
         # Allocate tensors for the rollout observations.
-        obs = np.zeros(shape=(steps, *env.observation_space.shape), dtype=np.float32)
+        obs = np.zeros(shape=(steps, num_envs, *env.single_observation_space.shape), dtype=np.float32)
         actions = np.zeros(shape=(steps, num_envs), dtype=int)
         rewards = np.zeros(shape=(steps, num_envs), dtype=np.float32)
-        done = np.zeros(shape=(steps, num_envs), dtype = bool)
+        done = np.zeros(shape=(steps, num_envs), dtype=bool)
 
         # Perform parallel step-by-step rollout along multiple trajectories.
         episode_returns, episode_lengths = [], []
+        terminated = 0
         for s in range(steps):
             # Sample an action from the agent and step the environment.
             obs[s] = o
@@ -61,13 +63,13 @@ def environment_loop(seed, agent, env, num_iters, steps, log_dir, demo=None):
             # If any of the environments is done, then save the statistics.
             if done[s].any():
                 episode_returns.extend([
-                    infos[k]["final_info"]["episode"]["r"] for k in range(num_envs)
-                    if (t | tr)[k] and "episode" in infos[k]["final_info"].keys()
+                    infos["episode"]["r"][k] for k in range(num_envs) if (t | tr)[k]
                 ])
                 episode_lengths.extend([
-                    infos[k]["final_info"]["episode"]["l"] for k in range(num_envs)
-                    if (t | tr)[k] and "episode" in infos[k]["final_info"].keys()
+                    infos["episode"]["l"][k] for k in range(num_envs) if (t | tr)[k]
                 ])
+
+                terminated += sum((1 for i in range(num_envs) if t[i]))
 
         # Permute `step` and `num_envs` dimensions and cast to torch tensors.
         obs = torch.from_numpy(obs).permute(1, 0, 2)
@@ -92,12 +94,14 @@ def environment_loop(seed, agent, env, num_iters, steps, log_dir, demo=None):
             "run_length": run_len,
             "avg_length": avg_l,
             "std_length": std_l,
+            "terminated": terminated,
+            "total ep." : len(episode_lengths),
         })
 
         # Log results.
         print(f"\nIteration ({i+1} / {num_iters}):", file=logfile)
         for k, v in agent.train_history[i].items():
-            print(f"    {k}: {v}", file=logfile)
+            print(f"    {k}: {v:.5f}", file=logfile)
 
         # Demo.
         if demo is not None:
@@ -107,7 +111,7 @@ def environment_loop(seed, agent, env, num_iters, steps, log_dir, demo=None):
     toc = time.time()
     print(f"\nTraining took {toc-tic:.3f} seconds in total.", file=logfile)
 
-    # Close the environment and save the agent policy.
+    # Close the environment and save the agent.
     logfile.close()
     env.close()
     agent.save(log_dir)
