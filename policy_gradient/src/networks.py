@@ -1,9 +1,9 @@
 from math import prod
-
 import torch.nn as nn
 
 
 class MLP(nn.Module):
+    """Fully connected multi-layer perceptron."""
 
     def __init__(self, in_shape, hidden_sizes, out_size):
         """Init a multi-layer perceptron neural net.
@@ -32,8 +32,16 @@ class MLP(nn.Module):
         layers.append(nn.Linear(fan_out, out_size))
         self.net = nn.Sequential(*layers)
 
+        # Initialize model parameters.
+        for param in self.parameters():
+            if len(param.shape) >= 2:
+                nn.init.kaiming_uniform_(param)         # weight
+            else:
+                nn.init.uniform_(param, -0.01, 0.01)    # bias
+
     def forward(self, x):
-        return self.net(x.to(self.device))
+        x = x.float().contiguous().to(self.device)
+        return self.net(x)
 
     @property
     def device(self):
