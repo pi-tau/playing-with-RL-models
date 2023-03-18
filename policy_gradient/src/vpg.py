@@ -39,7 +39,7 @@ class VPGAgent(PGAgent):
         mask = torch.ones_like(done) # no masking
         if self.value_network is not None:
             # Bootstrap the last reward of unfinished episodes.
-            bootstrap = self.value(obs[:, -1]).to(rewards.device)
+            bootstrap = self.value(obs[:, -1]).to(rewards.device) # uses torch.no_grad
             returns[:, -1] = torch.where(done[:, -1], rewards[:, -1], bootstrap)
             mask[:, -1] = True # if bootstrap then mark as finished
         else:
@@ -62,7 +62,7 @@ class VPGAgent(PGAgent):
         # Maybe update the value network and baseline the returns.
         if self.value_network is not None:
             self.update_value(obs, returns)
-            baseline = self.value(obs).to(returns.device)
+            baseline = self.value(obs).to(returns.device) # uses torch.no_grad
             returns -= baseline
 
         # Update the policy network.
@@ -89,12 +89,12 @@ class VPGAgent(PGAgent):
         eps = torch.finfo(torch.float32).eps
         returns = (returns - returns.mean()) / (returns.std() + eps)
         returns = returns.to(logp.device)
-        policy_loss = torch.mean(logp * returns)
+        pi_loss = torch.mean(logp * returns)
 
         # Add entropy regularization. Augment the loss with the mean entropy of
         # the policy calculated over the sampled observations.
         avg_policy_ent = Categorical(logits=logits).entropy().mean(dim=-1)
-        total_loss = policy_loss - self.entropy_reg * avg_policy_ent
+        total_loss = pi_loss - self.entropy_reg * avg_policy_ent
 
         # Backward pass.
         self.policy_optim.zero_grad()
@@ -106,10 +106,10 @@ class VPGAgent(PGAgent):
 
         # Store the stats.
         self.train_history[-1].update({
-            "policy_loss"       : policy_loss.item(),
-            "total_loss"        : total_loss.item(),
-            "policy_entropy"    : avg_policy_ent.item(),
-            "policy_total_norm" : total_norm.item(),
+            "policy_loss"            : pi_loss.item(),
+            "total_loss"             : total_loss.item(),
+            "policy_entropy"         : avg_policy_ent.item(),
+            "policy_total_grad_norm" : total_norm.item(),
         })
 
     def update_value(self, obs, returns):
@@ -131,28 +131,28 @@ class VPGAgent(PGAgent):
 
         # Iterate over the collected experiences and update the value network.
         # self.value_network.train()
-        total_loss, total_grad_norm, j = 0., 0., 0
+        total_loss, total_norm, j = 0., 0., 0
         for o, r in train_dataloader:
             # Forward pass.
             pred = self.value_network(o)
-            value_loss = F.mse_loss(pred, r.to(pred.device))
+            vf_loss = F.mse_loss(pred, r.to(pred.device))
             # Backward pass.
             self.value_optim.zero_grad()
-            value_loss.backward()
-            total_norm = torch.norm(torch.stack(
+            vf_loss.backward()
+            grad_norm = torch.norm(torch.stack(
                 [torch.norm(p.grad) for p in self.value_network.parameters()]))
             torch.nn.utils.clip_grad_norm_(self.value_network.parameters(), self.clip_grad)
             self.value_optim.step()
 
             # Bookkeeping.
-            total_loss += value_loss.item()
-            total_grad_norm += total_norm.item()
-            j += 1
+            total_loss += vf_loss.item() * o.shape[0]
+            total_norm += grad_norm.item() * o.shape[0]
+            j += o.shape[0]
 
         # Store the stats.
         self.train_history[-1].update({
-            "value_loss"        : total_loss / j,
-            "value_total_norm"  : total_grad_norm / j,
+            "value_avg_loss"        : total_loss / j,
+            "value_avg_grad_norm"   : total_norm / j,
         })
 
 #
