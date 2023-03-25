@@ -103,11 +103,11 @@ class PPOAgent(PGAgent):
         # Bootstrap the last reward of unfinished episodes.
         values = self.value(obs).to(rewards.device) # uses torch.no_grad
         adv = torch.zeros_like(rewards)
-        adv[:, -1] = torch.where(done[:, -1], rewards[:, -1], values[:, -1])
+        adv[:, -1] = torch.where(done[:, -1], rewards[:, -1] - values[:, -1], 0.)
 
         # Compute the generalized advantages.
         for t in range(T-2, -1, -1): # O(T)  \_("/)_/
-            delta = rewards[:, t] + (self.discount * values[:, t+1] - values[:, t]) * ~done[:, t]
+            delta = rewards[:, t] + self.discount * values[:, t+1] * ~done[:, t] - values[:, t]
             adv[:, t] = delta + self.lamb * self.discount * adv[:, t+1] * ~done[:, t]
 
         # Reshape the inputs for the neural networks.
@@ -219,7 +219,7 @@ class PPOAgent(PGAgent):
         returns = returns.reshape(-1, 1) # match the output shape of the net (B, 1)
 
         # Compute the values using the old parameters.
-        values_old = self.value(obs) # uses torch.no_grad
+        values_old = self.value(obs).reshape(-1, 1) # uses torch.no_grad
 
         # Iterate over the collected experiences and update the value network.
         total_vf_loss, total_norm, j = 0., 0., 0
