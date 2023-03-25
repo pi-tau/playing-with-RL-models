@@ -1,4 +1,4 @@
-import pickle
+import logging
 import os
 import time
 
@@ -27,8 +27,8 @@ def environment_loop(seed, agent, env, num_iters, steps, log_dir, demo=None):
             an agent and produces a demo of the performance of the agent.
             Default: None.
     """
-    os.makedirs(log_dir, exist_ok=True)
-    logfile = open(os.path.join(log_dir, "train.log"), "w")
+    logging.basicConfig(format="%(message)s", filemode="w", level=logging.INFO,
+        filename=os.path.join(log_dir, "train.log"))
     tic = time.time()
 
     # Reset the environment and store the initial observations.
@@ -99,9 +99,9 @@ def environment_loop(seed, agent, env, num_iters, steps, log_dir, demo=None):
         })
 
         # Log results.
-        print(f"\nIteration ({i+1} / {num_iters}):", file=logfile)
+        logging.info(f"\nIteration ({i+1} / {num_iters}):")
         for k, v in agent.train_history[i].items():
-            print(f"    {k}: {v:.5f}", file=logfile)
+            logging.info(f"    {k}: {v:.5f}")
 
         # Demo.
         if demo is not None:
@@ -109,10 +109,9 @@ def environment_loop(seed, agent, env, num_iters, steps, log_dir, demo=None):
 
     # Time the entire agent-environment loop.
     toc = time.time()
-    print(f"\nTraining took {toc-tic:.3f} seconds in total.", file=logfile)
+    logging.info(f"\nTraining took {toc-tic:.3f} seconds in total.")
 
     # Close the environment and save the agent.
-    logfile.close()
     env.close()
     agent.save(log_dir)
 

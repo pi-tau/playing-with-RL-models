@@ -108,6 +108,7 @@ def pg_plays_LunarLander():
     num_iters = 1001
     steps = 512
     log_dir = os.path.join("logs", "LunarLander_ppo")
+    os.makedirs(log_dir, exist_ok=True)
 
     environment_loop(seed, agent, env, num_iters, steps, log_dir, demo_LunarLander)
 
