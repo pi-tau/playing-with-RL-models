@@ -71,11 +71,11 @@ def environment_loop(seed, agent, env, num_iters, steps, log_dir, demo=None):
 
                 terminated += sum((1 for i in range(num_envs) if t[i]))
 
-        # Permute `step` and `num_envs` dimensions and cast to torch tensors.
-        obs = torch.from_numpy(obs).permute(1, 0, 2)
-        actions = torch.from_numpy(actions).permute(1, 0)
-        rewards = torch.from_numpy(rewards).permute(1, 0)
-        done = torch.from_numpy(done).permute(1, 0)
+        # Transpose `step` and `num_envs` dimensions and cast to torch tensors.
+        obs = torch.from_numpy(obs).transpose(1, 0)
+        actions = torch.from_numpy(actions).transpose(1, 0)
+        rewards = torch.from_numpy(rewards).transpose(1, 0)
+        done = torch.from_numpy(done).transpose(1, 0)
 
         # Pass the experiences to the agent to update the policy.
         agent.update(obs, actions, rewards, done)
@@ -95,7 +95,7 @@ def environment_loop(seed, agent, env, num_iters, steps, log_dir, demo=None):
             "avg_length": avg_l,
             "std_length": std_l,
             "terminated": terminated,
-            "total ep." : len(episode_lengths),
+            "total_ep" : len(episode_lengths),
         })
 
         # Log results.
