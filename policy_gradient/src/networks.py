@@ -24,6 +24,7 @@ class MLP(nn.Module):
         # Initialize the model architecture.
         layers = []
         sizes = [self.in_size] + hidden_sizes
+        layers.append(nn.Flatten())
         for fan_in ,fan_out in zip(sizes[:-1], sizes[1:]):
             layers.extend([
                 nn.Linear(fan_in, fan_out),
@@ -40,6 +41,18 @@ class MLP(nn.Module):
                 nn.init.uniform_(param, -0.01, 0.01)    # bias
 
     def forward(self, x):
+        """Forward the input through the neural network.
+        The first dimension of the input is considered to be the batch dimension
+        and all other dimensions will be flattened.
+
+        Args:
+            x: torch.Tensor
+                Tensor of shape (B, d1, d2, ..., dk).
+
+        Returns:
+            out: torch.Tensor
+                Tensor of shape (B, 1), giving the resulting output.
+        """
         x = x.float().contiguous().to(self.device)
         return self.net(x)
 

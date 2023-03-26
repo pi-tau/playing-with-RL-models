@@ -13,10 +13,8 @@ class PPOAgent(PGAgent):
     https://arxiv.org/abs/1707.06347
 
     The updates for the policy network are computed using sample episodes
-    generated from simulations. Advantages are calculated based on GAE
+    generated from simulations. Advantages are calculated based on GAE.
     (see: https://arxiv.org/abs/1506.02438)
-    Multiple policy update steps are performed before the experiences are
-    discarded.
     """
 
     def __init__(self, policy_network, value_network, config={}):
@@ -100,8 +98,12 @@ class PPOAgent(PGAgent):
         self.train_history.append({})
         N, T = rewards.shape
 
+        # Reshape the observations to prepare them as input for the neural nets.
+        obs = obs.reshape(N*T, *obs.shape[2:])
+
         # Bootstrap the last reward of unfinished episodes.
         values = self.value(obs).to(rewards.device) # uses torch.no_grad
+        values = values.reshape(N, T)               # reshape back to rewards.shape
         adv = torch.zeros_like(rewards)
         adv[:, -1] = torch.where(done[:, -1], rewards[:, -1] - values[:, -1], 0.)
 
@@ -111,7 +113,7 @@ class PPOAgent(PGAgent):
             adv[:, t] = delta + self.lamb * self.discount * adv[:, t+1] * ~done[:, t]
 
         # Reshape the inputs for the neural networks.
-        obs = obs.reshape(N*T, *obs.shape[2:])
+        # Some more reshaping.
         acts = acts.reshape(N*T)
         adv = adv.reshape(N*T)
         values = values.reshape(N*T)
