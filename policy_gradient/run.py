@@ -1,8 +1,10 @@
 import os
+import pickle
 import sys
 sys.path.append("..")
 
 import gymnasium as gym
+import matplotlib.pyplot as plt
 import numpy as np
 from numpy.random import normal
 import torch
@@ -111,12 +113,56 @@ def pg_plays_LunarLander():
     os.makedirs(log_dir, exist_ok=True)
 
     environment_loop(seed, agent, env, num_iters, steps, log_dir, demo_LunarLander)
+    plot_progress(log_dir)
+
+
+def plot_progress(log_dir):
+    with open(os.path.join(log_dir, "train_history.pickle"), "rb") as f:
+        train_history = pickle.load(f)
+
+    num_iters = len(train_history)
+    run_return = np.array([train_history[i]["run_return"] for i in range(num_iters)])
+    avg_return = np.array([train_history[i]["avg_return"] for i in range(num_iters)])
+    std_return = np.array([train_history[i]["std_return"] for i in range(num_iters)])
+    run_length = np.array([train_history[i]["run_length"] for i in range(num_iters)])
+    avg_length = np.array([train_history[i]["avg_length"] for i in range(num_iters)])
+    std_length = np.array([train_history[i]["std_length"] for i in range(num_iters)])
+    policy_entropy = np.array([train_history[i]["policy_entropy"] for i in range(num_iters)])
+    terminated = np.array([train_history[i]["terminated"] for i in range(num_iters)])
+    total_ep = np.array([train_history[i]["total_ep"] for i in range(num_iters)])
+
+    plt.style.use("ggplot")
+
+    # Plot returns.
+    fig, ax = plt.subplots()
+    ax.plot(run_return, label="Running Return", lw=2.)
+    ax.plot(avg_return, label="Average Return", lw=0.75)
+    ax.fill_between(np.arange(num_iters), avg_return - 0.5*std_return, avg_return + 0.5*std_return, color="k", alpha=0.25)
+    ax.legend(loc="upper left")
+    fig.savefig(os.path.join(log_dir, "returns.png"))
+
+    # Plot episode lengths.
+    fig, ax = plt.subplots()
+    ax.plot(run_length, label="Running Length", lw=2.)
+    ax.plot(avg_length, label="Average Length", lw=0.75)
+    ax.fill_between(np.arange(num_iters), avg_length - 0.5*std_length, avg_length + 0.5*std_length, color="k", alpha=0.25)
+    ax.legend(loc="upper left")
+    fig.savefig(os.path.join(log_dir, "lengths.png"))
+
+    # Plot policy entropy.
+    fig, ax = plt.subplots()
+    ax.plot(policy_entropy, lw=0.8)
+    fig.savefig(os.path.join(log_dir, "policy_entropy.png"))
+
+    # Plot % of terminated.
+    fig, ax = plt.subplots()
+    ax.plot(terminated / total_ep, lw=0.8)
+    fig.savefig(os.path.join(log_dir, "terminated.png"))
 
 
 if __name__ == "__main__":
     pg_plays_LunarLander()
 
-    # import gymnasium as gym
     # from gymnasium.utils.play import play
     # play(
     #     gym.make("LunarLander-v2", render_mode="rgb_array"),
