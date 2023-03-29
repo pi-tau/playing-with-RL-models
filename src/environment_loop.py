@@ -7,7 +7,7 @@ import torch
 from tqdm import tqdm
 
 
-def environment_loop(seed, agent, env, num_iters, steps, log_dir, demo=None):
+def environment_loop(seed, agent, env, num_iters, steps, log_dir, log_every=1, demo=None):
     """Runs a number of agent-environment interaction loops.
 
     Args:
@@ -22,6 +22,8 @@ def environment_loop(seed, agent, env, num_iters, steps, log_dir, demo=None):
             Number of time-steps to rollout each of the interaction loops.
         log_dir: str
             Path to a logging folder where useful information will be stored.
+        log_every: int, optional
+            Log the results every `log_every` iterations. Default: 1.
         demo: func(int, agent), optional
             Function that accepts an integer (the current iteration number) and
             an agent and produces a demo of the performance of the agent.
@@ -99,9 +101,10 @@ def environment_loop(seed, agent, env, num_iters, steps, log_dir, demo=None):
         })
 
         # Log results.
-        logging.info(f"\nIteration ({i+1} / {num_iters}):")
-        for k, v in agent.train_history[i].items():
-            logging.info(f"    {k}: {v:.5f}")
+        if i % log_every == 0:
+            logging.info(f"\nIteration ({i+1} / {num_iters}):")
+            for k, v in agent.train_history[i].items():
+                logging.info(f"    {k}: {v:.5f}")
 
         # Demo.
         if demo is not None:

@@ -112,7 +112,7 @@ def pg_plays_LunarLander():
     log_dir = os.path.join("logs", "LunarLander_ppo")
     os.makedirs(log_dir, exist_ok=True)
 
-    environment_loop(seed, agent, env, num_iters, steps, log_dir, demo_LunarLander)
+    environment_loop(seed, agent, env, num_iters, steps, log_dir, demo=demo_LunarLander)
     plot_progress(log_dir)
 
 
