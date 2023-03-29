@@ -91,8 +91,8 @@ def pg_plays_LunarLander():
     value_network = MLP(in_shape, [64, 64], 1).to(device)
     # agent = VPGAgent(policy_network, value_network, config={
     agent = PPOAgent(policy_network, value_network, config={
-        "policy_lr"  : 3e-4,
-        "value_lr"   : 3e-4,
+        "pi_lr"      : 3e-4,
+        "vf_lr"      : 3e-4,
         "discount"   : 0.99,
         "batch_size" : 128,
         "clip_grad"  : 1.,

@@ -21,9 +21,9 @@ class PGAgent:
                 Value network used for computing the baseline.
             config: dict, optional
                 Dictionary with configuration parameters, containing:
-                policy_lr: float, optional
+                pi_lr: float, optional
                     Learning rate parameter for the policy network. Default: 3e-4
-                value_lr: float, optional
+                vf_lr: float, optional
                     Learning rate parameter for the value network. Default: 3e-4
                 discount: float, optional
                     Discount factor for future rewards. Default: 1.
@@ -44,17 +44,17 @@ class PGAgent:
         self.train_history = []
 
         # Unpack the config parameters to configure the agent for training.
-        policy_lr = config.get("policy_lr", 3e-4)
-        value_lr = config.get("value_lr", 3e-4)
+        pi_lr = config.get("pi_lr", 3e-4)
+        vf_lr = config.get("vf_lr", 3e-4)
         self.discount = config.get("discount", 1.)
         self.batch_size = config.get("batch_size", 128)
         self.clip_grad = config.get("clip_grad", 1.)
         self.entropy_reg = config.get("entropy_reg", 0.)
 
         # Initialize the optimizers.
-        self.policy_optim = torch.optim.Adam(self.policy_network.parameters(), lr=policy_lr)
+        self.policy_optim = torch.optim.Adam(self.policy_network.parameters(), lr=pi_lr)
         if self.value_network is not None:
-            self.value_optim = torch.optim.Adam(self.value_network.parameters(), lr=value_lr)
+            self.value_optim = torch.optim.Adam(self.value_network.parameters(), lr=vf_lr)
 
     @torch.no_grad()
     def policy(self, obs):
