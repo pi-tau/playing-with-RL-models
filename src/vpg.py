@@ -81,7 +81,7 @@ class VPGAgent(PGAgent):
                 Tensor of shape (N,), giving the obtained returns.
         """
         # Forward pass.
-        # self.policy_network.train()
+        self.policy_network.train()
         logits = self.policy_network(obs)
         logp = F.cross_entropy(logits, acts.to(logits.device), reduction="none")
 
@@ -130,7 +130,7 @@ class VPGAgent(PGAgent):
         train_dataloader = data.DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
 
         # Iterate over the collected experiences and update the value network.
-        # self.value_network.train()
+        self.value_network.train()
         total_loss, total_norm, j = 0., 0., 0
         for o, r in train_dataloader:
             # Forward pass.

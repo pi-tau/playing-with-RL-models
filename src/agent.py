@@ -58,12 +58,12 @@ class PGAgent:
 
     @torch.no_grad()
     def policy(self, obs):
-        # self.policy_network.eval()
+        self.policy_network.eval()
         return Categorical(logits=self.policy_network(obs))
 
     @torch.no_grad()
     def value(self, obs):
-        # self.value_network.eval()
+        self.value_network.eval()
         return self.value_network(obs).squeeze(dim=-1)
 
     def update(self, obs, acts, rewards, done):

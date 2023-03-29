@@ -112,8 +112,7 @@ class PPOAgent(PGAgent):
             delta = rewards[:, t] + self.discount * values[:, t+1] * ~done[:, t] - values[:, t]
             adv[:, t] = delta + self.lamb * self.discount * adv[:, t+1] * ~done[:, t]
 
-        # Reshape the inputs for the neural networks.
-        # Some more reshaping.
+        # Reshape the acts, advantages and values.
         acts = acts.reshape(N*T)
         adv = adv.reshape(N*T)
         values = values.reshape(N*T)
@@ -138,7 +137,6 @@ class PPOAgent(PGAgent):
             adv: torch.Tensor
                 Tensor of shape (N,), giving the obtained advantages.
         """
-        # self.policy_network.train()
         eps = torch.finfo(torch.float32).eps
         device = self.policy_network.device
 
@@ -156,6 +154,7 @@ class PPOAgent(PGAgent):
             # https://github.com/openai/baselines/blob/ea25b9e8b234e6ee1bca43083f8f3cf974143998/baselines/ppo2/ppo2.py#L162
             dataset = data.TensorDataset(obs, acts, adv, logp_old)
             loader = data.DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
+            self.policy_network.train()
 
             for o, a, ad, lp_old in loader:
                 logits = self.policy_network(o)
@@ -217,7 +216,6 @@ class PPOAgent(PGAgent):
             returns: torch.Tensor
                 Tensor of shape (N,), giving the obtained returns.
         """
-        # self.value_network.train()
         returns = returns.reshape(-1, 1) # match the output shape of the net (B, 1)
 
         # Compute the values using the old parameters.
@@ -231,6 +229,7 @@ class PPOAgent(PGAgent):
             # update the policy by sampling mini-batches at random.
             dataset = data.TensorDataset(obs, returns, values_old)
             train_dataloader = data.DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
+            self.value_network.train()
 
             for o, r, v_old in train_dataloader:
                 # Forward pass.
