@@ -107,7 +107,7 @@ def pg_plays_LunarLander():
     })
 
     # Run the environment loop
-    num_iters = 1001
+    num_iters = 101
     steps = 512
     log_dir = os.path.join("logs", "LunarLander_ppo")
     os.makedirs(log_dir, exist_ok=True)
@@ -139,6 +139,8 @@ def plot_progress(log_dir):
     ax.plot(avg_return, label="Average Return", lw=0.75)
     ax.fill_between(np.arange(num_iters), avg_return - 0.5*std_return, avg_return + 0.5*std_return, color="k", alpha=0.25)
     ax.legend(loc="upper left")
+    ax.set_xlabel("Number of iterations")
+    ax.set_ylabel("Accumulated Return")
     fig.savefig(os.path.join(log_dir, "returns.png"))
 
     # Plot episode lengths.
@@ -147,16 +149,23 @@ def plot_progress(log_dir):
     ax.plot(avg_length, label="Average Length", lw=0.75)
     ax.fill_between(np.arange(num_iters), avg_length - 0.5*std_length, avg_length + 0.5*std_length, color="k", alpha=0.25)
     ax.legend(loc="upper left")
+    ax.set_xlabel("Number of iterations")
+    ax.set_ylabel("Episode length")
     fig.savefig(os.path.join(log_dir, "lengths.png"))
 
     # Plot policy entropy.
     fig, ax = plt.subplots()
     ax.plot(policy_entropy, lw=0.8)
     fig.savefig(os.path.join(log_dir, "policy_entropy.png"))
+    ax.set_xlabel("Number of iterations")
+    ax.set_ylabel("Average policy entropy")
+    fig.savefig(os.path.join(log_dir, "policy_entropy.png"))
 
     # Plot % of terminated.
     fig, ax = plt.subplots()
     ax.plot(terminated / total_ep, lw=0.8)
+    ax.set_xlabel("Number of iterations")
+    ax.set_ylabel("Ratio of terminated episodes")
     fig.savefig(os.path.join(log_dir, "terminated.png"))
 
 
