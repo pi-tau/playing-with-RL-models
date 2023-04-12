@@ -19,20 +19,22 @@ def demo_LunarLander(iter_number, agent):
     if iter_number % 100 != 0:
         return
 
-    env = gym.vector.SyncVectorEnv([
-        lambda: gym.wrappers.RecordVideo(
-            gym.make("LunarLander-v2", render_mode="rgb_array", enable_wind=True),
-            video_folder=os.path.join("videos", "LunarLander_ppo", "random", f"iter_{iter_number}"),
-            disable_logger=True,
-            episode_trigger=lambda i: i == 0,
-        ),
-        lambda: gym.wrappers.RecordVideo(
-            gym.make("LunarLander-v2", render_mode="rgb_array", enable_wind=True),
-            video_folder=os.path.join("videos", "LunarLander_ppo", "greedy", f"iter_{iter_number}"),
-            disable_logger=True,
-            episode_trigger=lambda i: i == 0,
-        ),
-    ])
+    env = gym.wrappers.RecordEpisodeStatistics(
+        gym.vector.SyncVectorEnv([
+            lambda: gym.wrappers.RecordVideo(
+                gym.make("LunarLander-v2", render_mode="rgb_array", enable_wind=True),
+                video_folder=os.path.join("videos", "LunarLander_ppo", "random", f"iter_{iter_number}"),
+                disable_logger=True,
+                episode_trigger=lambda i: i == 0,
+            ),
+            lambda: gym.wrappers.RecordVideo(
+                gym.make("LunarLander-v2", render_mode="rgb_array", enable_wind=True),
+                video_folder=os.path.join("videos", "LunarLander_ppo", "greedy", f"iter_{iter_number}"),
+                disable_logger=True,
+                episode_trigger=lambda i: i == 0,
+            ),
+        ]),
+    )
 
     o, _ = env.reset(seed=np.random.randint(1000))
 
@@ -45,8 +47,15 @@ def demo_LunarLander(iter_number, agent):
         acts = acts.cpu().numpy()
         o, r, t, tr, info = env.step(acts)
         if (t | tr)[0]: done_r = True
-        if (t | tr)[1]: done_g = True
+        if (t | tr)[1]: done_g = True; info_g = info["episode"]
         if (done_r and done_g): break
+
+    agent.train_history[iter_number]["Return"].update({
+        "test_avg" : info_g["r"][1],
+    })
+    agent.train_history[iter_number]["Episode Length"].update({
+        "test_avg" : info_g["l"][1],
+    })
 
 
 def pg_plays_LunarLander():
@@ -66,7 +75,7 @@ def pg_plays_LunarLander():
     num_envs = 16
     steps_limit = 500
     env = gym.wrappers.RecordEpisodeStatistics(
-        gym.vector.AsyncVectorEnv([
+        gym.vector.SyncVectorEnv([
             lambda:
             # gym.wrappers.TransformReward(   # Rewards are scaled and clipped.
             # gym.wrappers.NormalizeReward(
@@ -81,7 +90,7 @@ def pg_plays_LunarLander():
             #), lambda r: np.clip(r, -10, 10))
 
             for _ in range(num_envs)
-        ])
+        ]),
     )
 
     # Create the RL agent.
@@ -111,65 +120,34 @@ def pg_plays_LunarLander():
     steps = 512
     log_dir = os.path.join("logs", "LunarLander_ppo")
     os.makedirs(log_dir, exist_ok=True)
-
     environment_loop(seed, agent, env, num_iters, steps, log_dir, demo=demo_LunarLander)
-    plot_progress(log_dir)
 
-
-def plot_progress(log_dir):
-    with open(os.path.join(log_dir, "train_history.pickle"), "rb") as f:
-        train_history = pickle.load(f)
-
-    num_iters = len(train_history)
-    run_return = np.array([train_history[i]["run_return"] for i in range(num_iters)])
-    avg_return = np.array([train_history[i]["avg_return"] for i in range(num_iters)])
-    std_return = np.array([train_history[i]["std_return"] for i in range(num_iters)])
-    run_length = np.array([train_history[i]["run_length"] for i in range(num_iters)])
-    avg_length = np.array([train_history[i]["avg_length"] for i in range(num_iters)])
-    std_length = np.array([train_history[i]["std_length"] for i in range(num_iters)])
-    policy_entropy = np.array([train_history[i]["policy_entropy"] for i in range(num_iters)])
-    ratio_terminated = np.array([
-        train_history[i]["terminated"] / train_history[i]["total_ep"]
-        if train_history[i]["total_ep"] > 0 else 0
-        for i in range(num_iters)
-    ])
-
+    # Generate plots.
     plt.style.use("ggplot")
-
-    # Plot returns.
-    fig, ax = plt.subplots()
-    ax.plot(run_return, label="Running Return", lw=2.)
-    ax.plot(avg_return, label="Average Return", lw=0.75)
-    ax.fill_between(np.arange(num_iters), avg_return - 0.5*std_return, avg_return + 0.5*std_return, color="k", alpha=0.25)
-    ax.legend(loc="upper left")
-    ax.set_xlabel("Number of iterations")
-    ax.set_ylabel("Accumulated Return")
-    fig.savefig(os.path.join(log_dir, "returns.png"))
-
-    # Plot episode lengths.
-    fig, ax = plt.subplots()
-    ax.plot(run_length, label="Running Length", lw=2.)
-    ax.plot(avg_length, label="Average Length", lw=0.75)
-    ax.fill_between(np.arange(num_iters), avg_length - 0.5*std_length, avg_length + 0.5*std_length, color="k", alpha=0.25)
-    ax.legend(loc="upper left")
-    ax.set_xlabel("Number of iterations")
-    ax.set_ylabel("Episode length")
-    fig.savefig(os.path.join(log_dir, "lengths.png"))
-
-    # Plot policy entropy.
-    fig, ax = plt.subplots()
-    ax.plot(policy_entropy, lw=0.8)
-    fig.savefig(os.path.join(log_dir, "policy_entropy.png"))
-    ax.set_xlabel("Number of iterations")
-    ax.set_ylabel("Average policy entropy")
-    fig.savefig(os.path.join(log_dir, "policy_entropy.png"))
-
-    # Plot % of terminated.
-    fig, ax = plt.subplots()
-    ax.plot(ratio_terminated, lw=0.8)
-    ax.set_xlabel("Number of iterations")
-    ax.set_ylabel("Ratio of terminated episodes")
-    fig.savefig(os.path.join(log_dir, "terminated.png"))
+    for k in agent.train_history[0].keys():
+        fig, ax = plt.subplots()
+        if "avg" in agent.train_history[0][k].keys():
+            avg = np.array([agent.train_history[i][k]["avg"] for i in range(num_iters)])
+            ax.plot(avg, label="Average")
+        if "std" in agent.train_history[0][k].keys():
+            std = np.array([agent.train_history[i][k]["std"] for i in range(num_iters)])
+            ax.fill_between(np.arange(num_iters), avg-0.5*std, avg+0.5*std, color="k", alpha=0.25)
+        if "run" in agent.train_history[0][k].keys():
+            run = np.array([agent.train_history[i][k]["run"] for i in range(num_iters)])
+            ax.plot(run, label="Running")
+        if "test_avg" in agent.train_history[0][k].keys():
+            test_avg = np.array([agent.train_history[i][k]["test_avg"]
+                for i in range(num_iters) if "test_avg" in agent.train_history[i][k].keys()])
+            xs = np.linspace(0, num_iters, len(test_avg))
+            ax.plot(xs, test_avg, label="Test Average")
+        if "test_std" in agent.train_history[0][k].keys():
+            test_std = np.array([agent.train_history[i][k]["test_std"]
+                for i in range(num_iters) if "test_std" in agent.train_history[i][k].keys()])
+            ax.fill_between(xs, test_avg-0.5*test_std, test_avg+0.5*test_std, color="k", alpha=0.25)
+        ax.legend(loc="upper left")
+        ax.set_xlabel("Number of training iterations")
+        ax.set_ylabel(k)
+        fig.savefig(os.path.join(log_dir, k.replace(" ", "_")+".png"))
 
 
 if __name__ == "__main__":
