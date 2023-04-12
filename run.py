@@ -107,7 +107,7 @@ def pg_plays_LunarLander():
     })
 
     # Run the environment loop
-    num_iters = 101
+    num_iters = 1001
     steps = 512
     log_dir = os.path.join("logs", "LunarLander_ppo")
     os.makedirs(log_dir, exist_ok=True)
@@ -128,8 +128,11 @@ def plot_progress(log_dir):
     avg_length = np.array([train_history[i]["avg_length"] for i in range(num_iters)])
     std_length = np.array([train_history[i]["std_length"] for i in range(num_iters)])
     policy_entropy = np.array([train_history[i]["policy_entropy"] for i in range(num_iters)])
-    terminated = np.array([train_history[i]["terminated"] for i in range(num_iters)])
-    total_ep = np.array([train_history[i]["total_ep"] for i in range(num_iters)])
+    ratio_terminated = np.array([
+        train_history[i]["terminated"] / train_history[i]["total_ep"]
+        if train_history[i]["total_ep"] > 0 else 0
+        for i in range(num_iters)
+    ])
 
     plt.style.use("ggplot")
 
@@ -163,7 +166,7 @@ def plot_progress(log_dir):
 
     # Plot % of terminated.
     fig, ax = plt.subplots()
-    ax.plot(terminated / total_ep, lw=0.8)
+    ax.plot(ratio_terminated, lw=0.8)
     ax.set_xlabel("Number of iterations")
     ax.set_ylabel("Ratio of terminated episodes")
     fig.savefig(os.path.join(log_dir, "terminated.png"))
