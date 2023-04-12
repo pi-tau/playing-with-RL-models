@@ -1,14 +1,10 @@
-import numpy as np
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 import torch.utils.data as data
 from torch.distributions import Categorical
 
-from src.agent import PGAgent
 
-
-class PPOAgent(PGAgent):
+class PPOAgent:
     """Proximal policy optimization agent
     https://arxiv.org/abs/1707.06347
 
@@ -38,8 +34,6 @@ class PPOAgent(PGAgent):
                     Threshold for gradient norm clipping. Default: 1.
                 entropy_reg: float, optional
                     Entropy regularization factor. Default: 0.
-
-                # PPO-specific args
                 pi_clip: float, optional
                     Clip ratio for clipping the policy objective. Default: 0.02
                 vf_clip: float, optional
@@ -51,32 +45,41 @@ class PPOAgent(PGAgent):
                 lamb: float, optional
                     Advantage estimation discounting factor. Default: 0.95
         """
-        super().__init__(policy_network, value_network, config)
+        # The networks should already be moved to device.
+        self.policy_network = policy_network
+        self.value_network = value_network
 
-        # PPO-specific args.
+        # The training history is a list of dictionaries. At every update step
+        # we will write the update stats to a dictionary and we will store that
+        # dictionary in this list.
+        self.train_history = []
+
+        # Unpack the config parameters to configure the agent for training.
+        pi_lr = config.get("pi_lr", 3e-4)
+        vf_lr = config.get("vf_lr", 3e-4)
+        self.discount = config.get("discount", 1.)
+        self.batch_size = config.get("batch_size", 128)
+        self.clip_grad = config.get("clip_grad", 1.)
+        self.entropy_reg = config.get("entropy_reg", 0.)
         self.pi_clip = config.get("pi_clip", 0.02)
         self.vf_clip = config.get("vf_clip", None)
         self.tgt_KL = config.get("tgt_KL", 0.2)
         self.n_epochs = config.get("n_epochs", 5)
         self.lamb = config.get("lamb", 0.95)
 
-        # Initialize the policy and value network weights and biases.
-        # Weights use orthogonal initialization and biases are zeroed.
-        for module in self.policy_network.net:
-            if not isinstance(module, (nn.Linear, nn.Conv2d)):
-                continue
-            nn.init.orthogonal_(module.weight, gain=np.sqrt(2))
-            if module.bias is not None:
-                nn.init.zeros_(module.bias)
-        nn.init.orthogonal_(module.weight, gain=0.01) # policy output layer
+        # Initialize the optimizers.
+        self.policy_optim = torch.optim.Adam(self.policy_network.parameters(), lr=pi_lr)
+        self.value_optim = torch.optim.Adam(self.value_network.parameters(), lr=vf_lr)
 
-        for module in self.value_network.net:
-            if not isinstance(module, (nn.Linear, nn.Conv2d)):
-                continue
-            nn.init.orthogonal_(module.weight, gain=np.sqrt(2))
-            if module.bias is not None:
-                nn.init.zeros_(module.bias)
-        nn.init.orthogonal_(module.weight, gain=1.) # value output layer
+    @torch.no_grad()
+    def policy(self, obs):
+        self.policy_network.eval()
+        return Categorical(logits=self.policy_network(obs))
+
+    @torch.no_grad()
+    def value(self, obs):
+        self.value_network.eval()
+        return self.value_network(obs).squeeze(dim=-1)
 
     def update(self, obs, acts, rewards, done):
         """Update the agent policy network and value network using the provided

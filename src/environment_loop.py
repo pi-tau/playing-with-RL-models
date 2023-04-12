@@ -1,5 +1,6 @@
 import logging
 import os
+import pickle
 import time
 import warnings
 
@@ -20,7 +21,7 @@ def environment_loop(seed, agent, env, num_iters, steps, log_dir, log_every=1, d
         num_iters: int
             Number of agent-environment interaction loops.
         steps: int
-            Number of time-steps to rollout each of the interaction loops.
+            Number of time-steps the agent takes before it updates the policy.
         log_dir: str
             Path to a logging folder where useful information will be stored.
         log_every: int, optional
@@ -125,8 +126,10 @@ def environment_loop(seed, agent, env, num_iters, steps, log_dir, log_every=1, d
     toc = time.time()
     logging.info(f"\nTraining took {toc-tic:.3f} seconds in total.")
 
-    # Close the environment and save the agent.
+    # Close the environment, save the agent, and save the training history.
     env.close()
-    agent.save(log_dir)
+    torch.save(agent, os.path.join(log_dir, "agent.pt"))
+    with open(os.path.join(log_dir, "train_history.pickle"), "wb") as f:
+        pickle.dump(agent.train_history, f, protocol=pickle.HIGHEST_PROTOCOL)
 
 #
