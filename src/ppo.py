@@ -120,12 +120,10 @@ class PPOAgent:
         acts = acts.reshape(N*T)
         adv = adv.reshape(N*T)
         values = values.reshape(N*T)
+        returns = adv + values # NOTE: should we calculate returns using T-step bootstrap instead?
 
-        # Update value network.
-        returns = adv + values
+        # Update the value and the policy networks.
         self.update_value(obs, returns)
-
-        # Update the policy network.
         self.update_policy(obs, acts, adv)
 
     def update_policy(self, obs, acts, adv):
@@ -149,7 +147,7 @@ class PPOAgent:
 
         # Update the policy multiple times.
         n_updates = 0
-        pi_losses, pi_norms, total_losses = [], [] , []
+        pi_losses, pi_norms, total_losses = [], [], []
         for _ in range(self.n_epochs):
 
             # For each epoch run through the entire set of experiences and
@@ -163,14 +161,14 @@ class PPOAgent:
             for o, a, ad, lp_old in loader:
                 logits = self.policy_network(o)
                 logp = -F.cross_entropy(logits, a.to(logits.device), reduction="none")
-                ro = torch.exp(logp - lp_old.to(logp.device))
+                rho = torch.exp(logp - lp_old.to(logp.device))
 
                 # Normalize the advantages and compute the clipped loss.
                 # Note that advantages are normalized at the mini-batch level.
                 ad = (ad - ad.mean()) / (ad.std() + eps)
                 ad = ad.to(logp.device)
-                clip_adv = torch.clip(ro, 1-self.pi_clip, 1+self.pi_clip) * ad
-                pi_loss = -torch.mean(torch.min(ro * ad, clip_adv))
+                clip_adv = torch.clip(rho, 1-self.pi_clip, 1+self.pi_clip) * ad
+                pi_loss = -torch.mean(torch.min(rho * ad, clip_adv))
 
                 # Add entropy regularization. Augment the loss with the mean
                 # entropy of the policy calculated over the sampled observations.
