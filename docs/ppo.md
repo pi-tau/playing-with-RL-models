@@ -6,7 +6,7 @@ Proximal policy optimization was introduced in the paper
 The modification introduced by PPO to the vanilla PG algorithm seems like it is
 very simple and easy to implement, but there are a lot of other crucial details
 that also need to be taken into consideration. Checkout the brilliant
-([blog post](https://iclr-blog-track.github.io/2022/03/25/ppo-implementation-details/))
+[blog post](https://iclr-blog-track.github.io/2022/03/25/ppo-implementation-details/)
 *"The 37 details of proximal policy optimization"* for a thorough discussion on
 all the details.
 
@@ -34,13 +34,16 @@ can use importance sampling:
     \bigg[
         \frac{\pi_{\theta_{old}}(a|s)}{\pi_\theta(a|s)} \sum_{t=0} r_t(a_t, s_t)
     \bigg]
+\end{align}
 ```
 
 It seems like we could compute the objective to update the new policy weights
 using the data collected with the old policy weights, as long as we correct with
 the importance sampling weight:
 
-$\rho(\theta) = \frac{\pi_\theta(a|s)}{\pi_{\theta_{old}}(a|s)}$.
+```math
+\displaystyle \rho(\theta) = \frac{\pi_\theta(a|s)}{\pi_{\theta_{old}}(a|s)}.
+```
 
 Thus, we could perform multiple update steps using the collected rollout data.
 However, note that, in order to compute the correct gradient estimate, the states
@@ -55,29 +58,33 @@ is actually ok. The difference between the objective calculated using $\mu_\thet
 and $\mu_{\theta_{old}}$ is bounded, and thus, optimizing one would also optimize
 the other. In simple words, it is ok to optimize the objective with the old data
 as long as $\pi_\theta$ is close to $\pi_{\theta_{old}}$. A proof of this claim
-can be found in Appendix A of the ([paper](https://arxiv.org/abs/1502.05477))
+can be found in Appendix A of the [paper](https://arxiv.org/abs/1502.05477)
 *"Trust Region Policy Optimization"* by Schulman et. al.
 
 There are two different proximal policy algorithms each using a different
 heuristic to try to ensure that $\pi_\theta$ is close to $\pi_{\theta_{old}}$:
 
-* **PPO-Penalty** constraints the *KL divergence* between the two distributions
+* **PPO-Penalty** - constraints the *KL divergence* between the two distributions
 by adding it as a penalty to the objective:
 
-$ J(\theta) =
+```math
+J(\theta) =
 \mathbb{E}_{s_t \sim \mu_\theta, \space a_t \sim \pi_{\theta_{old}}}
 \bigg[
     \rho(\theta) A(s,a) - \beta KL(\pi_\theta(\cdot|s), \pi_{\theta_{old}}(\cdot|s))
-\bigg] $
+\bigg]
+```
 
-* **PPO-CLIP** clips the objective function if $\pi_\theta$ deviates too much
+* **PPO-CLIP** - clips the objective function if $\pi_\theta$ deviates too much
 from $\pi_{\theta_{old}}:
 
-$ J(\theta) =
+```math
+J(\theta) =
 \mathbb{E}_{s_t \sim \mu_\theta, \space a_t \sim \pi_{\theta_{old}}}
 \bigg[
     \min (\rho(\theta) A(s,a), clip(\rho(\theta), 1-\epsilon, 1+\epsilon) A(s,a))
-\bigg] $
+\bigg]
+```
 
 The algorithm implemented here is **PPO-CLIP** augmented with an a check for
 early stopping. If the mean *KL divergence* between $\pi_\theta$ and
@@ -89,9 +96,9 @@ gradient steps and we collect new rollout data.
 In Algorithm 1. of the PPO paper the authors state that they use "fixed-length
 trajectory segments" for training the agent. What this means is that there are
 two phases to training:
-* Phase 1 -- Rollout phase. The agent performs a fixed-length $T$ step rollout
-collecting (step, action, reward) triples.
-* Phase 2 -- Learning phase. The agent performs multiple ppo updates to the
+* Phase 1 - Rollout phase. The agent performs a fixed-length $T$ step rollout
+collecting (state, action, reward) triples.
+* Phase 2 - Learning phase. The agent performs multiple ppo updates to the
 policy weights using the collected data.
 Once the learning phase is over the agent starts a new rollout phase but
 continues to step the environment from where it left off, i.e. the environment
@@ -135,15 +142,19 @@ we need an advantage estimator that does not look beyond timestep $T$. That mean
 we need to bootstrap the estimation at timestep $T$ by for example using an
 approximation of the value function:
 
-$R(s_t) = r_t + r_{t+1} + \cdots + r_{T-2} + V(s_{T-1})$.
+```math
+R(s_t) = r_t + r_{t+1} + \cdots + r_{T-2} + V(s_{T-1}).
+```
 
 The estimator used is a truncated version of the generalized advantage estimator
 introduced in the ([paper](https://arxiv.org/abs/1506.02438))
 *"High-Dimensional Continuous Control Using Generalized Advantage Estimation"*
 by Schulman et. el.:
 
-$A(s_t, a_t) = \delta_t + (\gamma \lambda) \delta_{t+1} +
-\cdots + (\gamma \lambda)^{T-t+1} \delta_{T-1}$,
+```math
+A(s_t, a_t) = \delta_t + (\gamma \lambda) \delta_{t+1} +
+\cdots + (\gamma \lambda)^{T-t+1} \delta_{T-1},
+```
 
 where $\delta_t = r_t + \gamma V_\phi(s_{t+1}) - V_\phi(s_t)$. Here $V_\phi(s)$
 is a neural network approximating the value function.
@@ -208,6 +219,7 @@ updating the parameters:
 
 ```math
 V_{CLIP} = clip(V_\phi, V_{\phi_{old}}-\epsilon, V_{\phi_{old}}-\epsilon)
+
 L^V = max[(V_\phi - V_{tgt})^2, (V_{CLIP} - V_{tgt})^2].
 ```
 

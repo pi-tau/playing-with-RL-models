@@ -2,8 +2,10 @@
 The objective that we are trying to maximize is the expected return starting
 from the initial state:
 
-$J(\theta) = \mathbb{E}_{s_t \sim \mu_\theta, \space a_t \sim \pi_\theta}
-\bigg[ \sum_{t=0} r_t(a_t, s_t) \bigg]$
+```math
+J(\theta) = \mathbb{E}_{s_t \sim \mu_\theta, \space a_t \sim \pi_\theta}
+\bigg[ \sum_{t=0} r_t(a_t, s_t) \bigg]
+```
 
 From the policy gradient theorem we now that the gradient of the objective is
 given by:

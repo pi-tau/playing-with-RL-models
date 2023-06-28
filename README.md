@@ -12,9 +12,9 @@ details and removing all the confusing abstractions. Maybe it could be used as a
 reference if you want to roll out your own implementations.
 
 Implementations of the following algorithms can be found here:
-* Vanilla policy gradient --
-(([code](https://github.com/pi-tau/playing-with-RL-models/blob/main/src/vpg.py)))
-(([docs](https://github.com/pi-tau/playing-with-RL-models/blob/main/docs/vpg.md)))
-* Proximal policy optimization --
-(([code](https://github.com/pi-tau/playing-with-RL-models/blob/main/src/ppo.py)))
-(([docs](https://github.com/pi-tau/playing-with-RL-models/blob/main/docs/ppo.md)))
+* Vanilla policy gradient -
+[code](https://github.com/pi-tau/playing-with-RL-models/blob/main/src/vpg.py),
+[docs](https://github.com/pi-tau/playing-with-RL-models/blob/main/docs/vpg.md)
+* Proximal policy optimization -
+[code](https://github.com/pi-tau/playing-with-RL-models/blob/main/src/ppo.py),
+[docs](https://github.com/pi-tau/playing-with-RL-models/blob/main/docs/ppo.md)
