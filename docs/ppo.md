@@ -46,15 +46,16 @@ the importance sampling weight:
 ```
 
 Thus, we could perform multiple update steps using the collected rollout data.
-However, note that, in order to compute the correct gradient estimate, the states
-have to be sampled under $\mu_\theta$, but our data was sampled under
+However, note that, in order to compute the correct gradient estimate, the
+actions have to be sampled under $\pi_{\theta_{old}}, but the states have to be
+sampled under $\mu_\theta$. Unfortunately our data was sampled under
 $\mu_{\theta_{old}}$.
 
 How bad is that?
 
 It turns out that if $\pi_\theta$ does not deviate *too much* from
 $\pi_{\theta_{old}}$, then using the old data sampled from $\mu_{\theta_{old}}$
-is actually ok. The difference between the objective calculated using $\mu_\theta$
+is actually ok. The difference between the objectives calculated using $\mu_\theta$
 and $\mu_{\theta_{old}}$ is bounded, and thus, optimizing one would also optimize
 the other. In simple words, it is ok to optimize the objective with the old data
 as long as $\pi_\theta$ is close to $\pi_{\theta_{old}}$. A proof of this claim
@@ -76,17 +77,19 @@ J(\theta) =
 ```
 
 * **PPO-CLIP** - clips the objective function if $\pi_\theta$ deviates too much
-from $\pi_{\theta_{old}}:
+from $\pi_{\theta_{old}}$:
 
 ```math
 J(\theta) =
 \mathbb{E}_{s_t \sim \mu_\theta, \space a_t \sim \pi_{\theta_{old}}}
 \bigg[
-    \min (\rho(\theta) A(s,a), clip(\rho(\theta), 1-\epsilon, 1+\epsilon) A(s,a))
+    \min \big(
+        \rho(\theta) A(s,a), \space \text{clip}(\rho(\theta), 1-\epsilon, 1+\epsilon) A(s,a)
+    \big)
 \bigg]
 ```
 
-The algorithm implemented here is **PPO-CLIP** augmented with an a check for
+The algorithm implemented here is **PPO-CLIP** augmented with a check for
 early stopping. If the mean *KL divergence* between $\pi_\theta$ and
 $\pi_{\theta_{old}}$ grows beyond a given threshold, then we stop taking
 gradient steps and we collect new rollout data.
@@ -108,9 +111,9 @@ addition, rollout is performed on $N$ environments in parallel, allowing for a
 more efficient data collection.
 
 After the rollout phase is over the experiences are stored in the following
-$NxT$ tensors: `observations`, `actions`, `rewards`, `done`. The `done` tensor
-provides information whether each of the observations is a terminal state for
-the environment, i.e. whether the environment was terminated or truncated at
+$N \times T$ tensors: `observations`, `actions`, `rewards`, `done`. The `done`
+tensor provides information whether each of the observations is a terminal state
+for the environment, i.e. whether the environment was terminated or truncated at
 that step. Note that each fixed-length segment could contain multiple episodes
 that are concatenated one after another. An example tensor of observations is:
 ```python3
@@ -123,7 +126,7 @@ that are concatenated one after another. An example tensor of observations is:
 ```
 
 We have 4 trajectories each consisting of 8 time-steps. The corresponding `done`
-tensor which of the observations are from terminal states:
+tensor indicates which of the observations are from terminal states:
 ```python3
     done = [
         [   0,    0,    0,    0, True,    0,    0,    0]
@@ -139,7 +142,7 @@ the return using a Monte-Carlo estimate, which requires a full-episode rollout
 giving all of the rewards from the given episode. However, in order to compute
 the advantage $A(s,a)$ for a (state, action) pair from the fixed-length segment
 we need an advantage estimator that does not look beyond timestep $T$. That means
-we need to bootstrap the estimation at timestep $T$ by for example using an
+we need to bootstrap the estimation at timestep $T$ by using, for example, an
 approximation of the value function:
 
 ```math
@@ -147,7 +150,7 @@ R(s_t) = r_t + r_{t+1} + \cdots + r_{T-2} + V(s_{T-1}).
 ```
 
 The estimator used is a truncated version of the generalized advantage estimator
-introduced in the ([paper](https://arxiv.org/abs/1506.02438))
+introduced in the [paper](https://arxiv.org/abs/1506.02438)
 *"High-Dimensional Continuous Control Using Generalized Advantage Estimation"*
 by Schulman et. el.:
 
