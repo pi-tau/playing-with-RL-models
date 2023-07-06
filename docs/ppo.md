@@ -47,7 +47,7 @@ the importance sampling weight:
 
 Thus, we could perform multiple update steps using the collected rollout data.
 However, note that, in order to compute the correct gradient estimate, the
-actions have to be sampled under $\pi_{\theta_{old}}, but the states have to be
+actions have to be sampled under $\pi_{\theta_{old}}$, but the states have to be
 sampled under $\mu_\theta$. Unfortunately our data was sampled under
 $\mu_{\theta_{old}}$.
 
@@ -221,9 +221,9 @@ the clipped objective for the policy network, we also clip the value loss before
 updating the parameters:
 
 ```math
-V_{CLIP} = clip(V_\phi, V_{\phi_{old}}-\epsilon, V_{\phi_{old}}-\epsilon)
+V_{CLIP} = \text{clip}(V_\phi, V_{\phi_{old}}-\epsilon, V_{\phi_{old}}-\epsilon)
 
-L^V = max[(V_\phi - V_{tgt})^2, (V_{CLIP} - V_{tgt})^2].
+L^V = \max[(V_\phi - V_{tgt})^2, (V_{CLIP} - V_{tgt})^2].
 ```
 
 And again we perform $K$ epochs of mini-batch updates with batch size $B$ using
