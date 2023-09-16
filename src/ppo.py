@@ -82,7 +82,7 @@ class PPOAgent:
         self.value_network.eval()
         return self.value_network(obs).squeeze(dim=-1)
 
-    def update(self, obs, acts, rewards, done):
+    def update(self, obs, acts, rewards, _, done):
         """Update the agent policy network and value network using the provided
         experiences.
 
@@ -120,7 +120,7 @@ class PPOAgent:
         acts = acts.reshape(N*T)
         adv = adv.reshape(N*T)
         values = values.reshape(N*T)
-        returns = adv + values # NOTE: should we calculate returns using T-step bootstrap instead?
+        returns = adv + values # returns are estimated using TD(lambda)
 
         # Update the value and the policy networks.
         self.update_value(obs, returns)
