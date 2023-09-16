@@ -8,13 +8,13 @@ from torch.distributions import Categorical
 class VPGAgent:
     """Vanilla policy gradient implementation of a reinforcement learning agent.
     The updates for the policy network are computed using sample episodes
-    generated from simulations. A Monte-carlo estimate of the gradients is
+    generated from simulations. A Monte-carlo estimate of the return is
     computed and a single policy update step is performed before the experiences
     are discarded.
     """
 
     def __init__(self, policy_network, value_network=None, config={}):
-        """Init a policy gradient agent.
+        """Init a vpg agent.
         Set up the configuration parameters for training the model and
         initialize the optimizers for updating the neural networks.
 
@@ -33,7 +33,7 @@ class VPGAgent:
                 batch_size: int, optional
                     Batch size for iterating over the set of experiences. Default: 128.
                 clip_grad: float, optional
-                    Threshold for gradient norm clipping. Default: 1.
+                    Threshold for gradient norm clipping. Default: None.
                 entropy_reg: float, optional
                     Entropy regularization factor. Default: 0.
         """
@@ -51,7 +51,7 @@ class VPGAgent:
         vf_lr = config.get("vf_lr", 3e-4)
         self.discount = config.get("discount", 1.)
         self.batch_size = config.get("batch_size", 128)
-        self.clip_grad = config.get("clip_grad", 1.)
+        self.clip_grad = config.get("clip_grad", None)
         self.entropy_reg = config.get("entropy_reg", 0.)
 
         # Initialize the optimizers.
@@ -69,50 +69,35 @@ class VPGAgent:
         self.value_network.eval()
         return self.value_network(obs).squeeze(dim=-1)
 
-    def update(self, obs, acts, rewards, done):
+    def update(self, obs, acts, rewards, _, __):
         """Update the agent policy network using the provided experiences.
         If the agent uses a value network, then it will also be updated.
 
         Args:
             obs: torch.Tensor
-                Tensor of shape (N, T, *), giving the observations produced by
-                the agent during multiple roll-outs.
+                Tensor of shape (1, T, *), giving the observations produced by
+                the agent during a single episode rollout.
             acts: torch.Tensor
-                Tensor of shape (N, T), giving the actions selected by the agent.
+                Tensor of shape (1, T), giving the actions selected by the agent.
             rewards: torch.Tensor
-                Tensor of shape (N, T), giving the obtained rewards.
-            done: torch.Tensor
-                Boolean tensor of shape (N, T), indicating which of the
-                observations are terminal states for the environment.
+                Tensor of shape (1, T), giving the obtained rewards.
         """
+        # Reshape the inputs for the neural networks.
+        B, T = rewards.shape
+        assert B == 1, "vanilla pg can only be used with a single episode"
+        obs = obs.reshape(B*T, *obs.shape[2:])
+        acts = acts.reshape(B*T)
+        rewards = rewards.reshape(B*T)
+
+        # Compute the discounted returns using a simple vector-matrix
+        # multiplication. We multiply the rewards vector by a lower-triangular
+        # toeplitz matrix.
+        returns = torch.zeros_like(rewards)
+        toeplitz = [[self.discount ** j for j in range(i,-1,-1)] + [0]*(T-i-1) for i in range(T)]
+        returns = rewards @ torch.FloatTensor(toeplitz)
+
         # Extend the training history with a dict of statistics.
         self.train_history.append({})
-        N, T = rewards.shape
-        returns = torch.zeros_like(rewards)
-
-        # Deal with unfinished episodes; either bootstrap or mask.
-        mask = torch.ones_like(done) # no masking
-        if self.value_network is not None:
-            # Bootstrap the last reward of unfinished episodes.
-            bootstrap = self.value(obs[:, -1]).to(rewards.device) # uses torch.no_grad
-            returns[:, -1] = torch.where(done[:, -1], rewards[:, -1], bootstrap)
-            mask[:, -1] = True # if bootstrap then mark as finished
-        else:
-            returns[:, -1] = torch.where(done[:, -1], rewards[:, -1], 0.)
-            mask[:, -1] = done[:, -1]
-
-        # Compute the discounted returns.
-        for t in range(T-2, -1, -1): # O(T)  \_("/)_/
-            returns[:, t] = rewards[:, t] + self.discount * returns[:, t+1] * ~done[:, t]
-
-            # Maybe mask unfinished episodes
-            mask[:, t] = mask[:, t+1] | done[:, t]
-            returns[:, t] *= mask[:, t]
-
-        # Reshape the inputs for the neural networks. Maybe discard masked experiences.
-        obs = obs.reshape(N*T, *obs.shape[2:])[mask.ravel()]
-        acts = acts.reshape(N*T)[mask.ravel()]
-        returns = returns.reshape(N*T)[mask.ravel()]
 
         # Maybe update the value network and baseline the returns.
         if self.value_network is not None:
@@ -144,19 +129,20 @@ class VPGAgent:
         eps = torch.finfo(torch.float32).eps
         returns = (returns - returns.mean()) / (returns.std() + eps)
         returns = returns.to(logp.device)
-        pi_loss = torch.mean(logp * returns)
+        pi_loss = (logp * returns).mean()
 
         # Add entropy regularization. Augment the loss with the mean entropy of
         # the policy calculated over the sampled observations.
         policy_entropy = Categorical(logits=logits).entropy()
-        total_loss = pi_loss - self.entropy_reg * policy_entropy.mean(dim=-1)
+        total_loss = pi_loss - self.entropy_reg * policy_entropy.mean()
 
         # Backward pass.
         self.policy_optim.zero_grad()
         total_loss.backward()
         total_norm = torch.norm(
             torch.stack([torch.norm(p.grad) for p in self.policy_network.parameters()]))
-        torch.nn.utils.clip_grad_norm_(self.policy_network.parameters(), self.clip_grad)
+        if self.clip_grad is not None:
+            torch.nn.utils.clip_grad_norm_(self.policy_network.parameters(), self.clip_grad)
         self.policy_optim.step()
 
         # Store the stats.
@@ -164,8 +150,8 @@ class VPGAgent:
             "Policy Loss"    : {"avg": pi_loss.item()},
             "Total_Loss"     : {"avg": total_loss.item()},
             "Policy Entropy" : {
-                "avg": policy_entropy.mean(dim=-1).item(),
-                "std": policy_entropy.std(dim=-1).item(),
+                "avg": policy_entropy.mean().item(),
+                "std": policy_entropy.std().item(),
             },
             "Policy Grad Norm": {"avg": total_norm.item()},
         })
@@ -183,7 +169,7 @@ class VPGAgent:
                 Tensor of shape (N,), giving the obtained returns.
         """
         # Create a dataloader object for iterating through the examples.
-        returns = returns.reshape(-1, 1) # match the output shape of the net (B, 1)
+        returns = returns.reshape(-1, 1) # match the output shape of the net (N, 1)
         dataset = data.TensorDataset(obs, returns)
         train_dataloader = data.DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
 
@@ -199,7 +185,8 @@ class VPGAgent:
             vf_loss.backward()
             total_norm = torch.norm(torch.stack(
                 [torch.norm(p.grad) for p in self.value_network.parameters()]))
-            torch.nn.utils.clip_grad_norm_(self.value_network.parameters(), self.clip_grad)
+            if self.clip_grad is not None:
+                torch.nn.utils.clip_grad_norm_(self.value_network.parameters(), self.clip_grad)
             self.value_optim.step()
 
             # Bookkeeping.
