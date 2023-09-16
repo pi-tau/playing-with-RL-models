@@ -15,6 +15,12 @@ Implementations of the following algorithms can be found here:
 * Vanilla policy gradient -
 [code](https://github.com/pi-tau/playing-with-RL-models/blob/main/src/vpg.py),
 [docs](https://github.com/pi-tau/playing-with-RL-models/blob/main/docs/vpg.md)
+* Advantage Actor-Critic -
+[code](https://github.com/pi-tau/playing-with-RL-models/blob/main/src/a2c.py)
+[docs](https://github.com/pi-tau/playing-with-RL-models/blob/main/docs/a2c.md)
 * Proximal policy optimization -
 [code](https://github.com/pi-tau/playing-with-RL-models/blob/main/src/ppo.py),
 [docs](https://github.com/pi-tau/playing-with-RL-models/blob/main/docs/ppo.md)
+
+If you want to read more about policy gradient algorithms, then checkout a
+[blog post](https://pi-tau.github.io/posts/actor-critic/) that I wrote.
