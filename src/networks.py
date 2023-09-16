@@ -1,4 +1,4 @@
-from math import prod
+import numpy as np
 import torch.nn as nn
 
 
@@ -17,7 +17,7 @@ class MLP(nn.Module):
                 Size of the output.
         """
         super().__init__()
-        self.in_size = prod(in_shape)
+        self.in_size = np.prod(in_shape)
         self.hidden_sizes = hidden_sizes
         self.out_size = out_size
 
