@@ -149,7 +149,7 @@ def play_LunarLander(agent_type="ppo"):
 
 
 if __name__ == "__main__":
-    play_LunarLander(agent_type="vpg")
+    play_LunarLander(agent_type="ppo")
 
     # from gymnasium.utils.play import play
     # play(

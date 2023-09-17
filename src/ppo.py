@@ -83,31 +83,31 @@ class PPOAgent:
         return self.value_network(obs).squeeze(dim=-1)
 
     def update(self, obs, acts, rewards, _, done):
-        """Update the agent policy network and value network using the provided
-        experiences.
+        """Proximal Policy optimization (clip version).
+        With early stopping based on KL divergence.
 
         Args:
             obs: torch.Tensor
-                Tensor of shape (N, T, *), giving the observations produced by
+                Tensor of shape (B, T, *), giving the observations produced by
                 the agent during multiple roll-outs.
             acts: torch.Tensor
-                Tensor of shape (N, T), giving the actions selected by the agent.
+                Tensor of shape (B, T), giving the actions selected by the agent.
             rewards: torch.Tensor
-                Tensor of shape (N, T), giving the obtained rewards.
+                Tensor of shape (B, T), giving the obtained rewards.
             done: torch.Tensor
-                Boolean tensor of shape (N, T), indicating which of the
+                Boolean tensor of shape (B, T), indicating which of the
                 observations are terminal states for the environment.
         """
         # Extend the training history with a dict of statistics.
         self.train_history.append({})
-        N, T = rewards.shape
+        B, T = rewards.shape
 
         # Reshape the observations to prepare them as input for the neural nets.
-        obs = obs.reshape(N*T, *obs.shape[2:])
+        obs = obs.reshape(B*T, *obs.shape[2:])
 
         # Bootstrap the last reward of unfinished episodes.
         values = self.value(obs).to(rewards.device) # uses torch.no_grad
-        values = values.reshape(N, T)               # reshape back to rewards.shape
+        values = values.reshape(B, T)               # reshape back to rewards.shape
         adv = torch.zeros_like(rewards)
         adv[:, -1] = torch.where(done[:, -1], rewards[:, -1] - values[:, -1], 0.)
 
@@ -117,152 +117,134 @@ class PPOAgent:
             adv[:, t] = delta + self.lamb * self.discount * adv[:, t+1] * ~done[:, t]
 
         # Reshape the acts, advantages and values.
-        acts = acts.reshape(N*T)
-        adv = adv.reshape(N*T)
-        values = values.reshape(N*T)
-        returns = adv + values # returns are estimated using TD(lambda)
+        acts = acts.reshape(B*T)
+        adv = adv.reshape(B*T)
+        values = values.reshape(B*T)
+        returns = adv + values  # returns are estimated using TD(lambda)
 
-        # Update the value and the policy networks.
-        self.update_value(obs, returns)
-        self.update_policy(obs, acts, adv)
-
-    def update_policy(self, obs, acts, adv):
-        """Proximal Policy optimization (clip version).
-        With early stopping based on KL divergence.
-
-        Args:
-            obs: torch.Tensor
-                Tensor of shape (N, *), giving the observations produced by the
-                agent during rollout.
-            acts: torch.Tensor
-                Tensor of shape (N,), giving the actions selected by the agent.
-            adv: torch.Tensor
-                Tensor of shape (N,), giving the obtained advantages.
-        """
-        eps = torch.finfo(torch.float32).eps
+        # Compute the probs and values using the old parameters.
         device = self.policy_network.device
-
-        # Compute the probs using the old parameters.
         logp_old = self.policy(obs).log_prob(acts.to(device)) # uses torch.no_grad
+        values_old = self.value(obs)                          # uses torch.no_grad
 
-        # Update the policy multiple times.
-        n_updates = 0
-        pi_losses, pi_norms, total_losses = [], [], []
+        # Iterate over the collected experiences and update the networks.
+        self.n_updates = 0
+        self.pi_losses, self.pi_norms, self.total_losses = [], [], []
+        self.vf_losses, self.vf_norms = [], []
         for _ in range(self.n_epochs):
+            self.policy_network.train()
+            self.value_network.train()
 
             # For each epoch run through the entire set of experiences and
-            # update the policy by sampling mini-batches at random.
-            # https://github.com/DLR-RM/stable-baselines3/blob/e5deeed16efb57c34ccdcb14692439154d970527/stable_baselines3/ppo/ppo.py#L196
-            # https://github.com/openai/baselines/blob/ea25b9e8b234e6ee1bca43083f8f3cf974143998/baselines/ppo2/ppo2.py#L162
-            dataset = data.TensorDataset(obs, acts, adv, logp_old)
+            # update the policy and value by sampling mini-batches at random.
+            dataset = data.TensorDataset(obs, acts, adv, returns, logp_old, values_old)
             loader = data.DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
-            self.policy_network.train()
-
-            for o, a, ad, lp_old in loader:
-                logits = self.policy_network(o)
-                logp = -F.cross_entropy(logits, a.to(logits.device), reduction="none")
-                rho = torch.exp(logp - lp_old.to(logp.device))
-
-                # Normalize the advantages and compute the clipped loss.
-                # Note that advantages are normalized at the mini-batch level.
-                ad = (ad - ad.mean()) / (ad.std() + eps)
-                ad = ad.to(logp.device)
-                clip_adv = torch.clip(rho, 1-self.pi_clip, 1+self.pi_clip) * ad
-                pi_loss = -torch.mean(torch.min(rho * ad, clip_adv))
-
-                # Add entropy regularization. Augment the loss with the mean
-                # entropy of the policy calculated over the sampled observations.
-                policy_entropy = Categorical(logits=logits).entropy()
-                loss = pi_loss - self.entropy_reg * policy_entropy.mean(dim=-1)
-
-                # Backward pass.
-                self.policy_optim.zero_grad()
-                loss.backward()
-                total_norm = torch.norm(
-                    torch.stack([torch.norm(p.grad) for p in self.policy_network.parameters()]))
-                torch.nn.utils.clip_grad_norm_(self.policy_network.parameters(), self.clip_grad)
-                self.policy_optim.step()
-
-                # Bookkeeping.
-                n_updates += 1
-                pi_losses.append(pi_loss.item())
-                pi_norms.append(total_norm.item())
-                total_losses.append(loss.item())
+            for o, a, ad, r, lp_old, v_old in loader:
+                self.update_policy(o, a, ad, lp_old)
+                self.update_value(o, r, v_old)
 
             # Check for early stopping.
-            logp = self.policy(obs).log_prob(acts.to(device))   # uses torch.no_grad
-            KL = logp_old - logp                                # KL(P,Q) = Sum(P log(Q/P)) = E_P[logQ-logP]
+            pi = self.policy(obs)
+            logp = pi.log_prob(acts.to(device)) # uses torch.no_grad
+            KL = logp_old - logp                # KL(P,Q) = Sum(P log(Q/P)) = E_P[logQ-logP]
             if self.tgt_KL is not None and KL.mean() > 1.5 * self.tgt_KL:
                 break
 
         # Store the stats.
         self.train_history[-1].update({
-            "Policy Loss"    : {"avg": np.mean(pi_losses), "std": np.std(pi_losses)},
-            "Total_Loss"     : {"avg": np.mean(total_losses), "std": np.std(total_losses)},
+            # Policy network stats.
+            "Policy Loss"    : {"avg": np.mean(self.pi_losses), "std": np.std(self.pi_losses)},
+            "Total_Loss"     : {"avg": np.mean(self.total_losses), "std": np.std(self.total_losses)},
             "Policy Entropy" : {                            # policy entropy after all updates
-                "avg": policy_entropy.mean(dim=-1).item(),
-                "std": policy_entropy.std(dim=-1).item(),
+                "avg": pi.entropy().mean().item(),
+                "std": pi.entropy().std().item(),
             },
             "KL Divergence"  : {                            # KL divergence after all updates
                 "avg": KL.mean().item(),
                 "std": KL.std().item(),
             },
-            "Policy Grad Norm": {"avg": np.mean(pi_norms), "std": np.std(pi_norms)},
-            "Num PPO updates" : {"avg": n_updates},
+            "Policy Grad Norm": {"avg": np.mean(self.pi_norms), "std": np.std(self.pi_norms)},
+            "Num PPO updates" : {"avg": self.n_updates},
+            # Value network stats.
+            "Value Loss"      : {"avg": np.mean(self.vf_losses), "std": np.std(self.vf_losses)},
+            "Value Grad Norm" : {"avg": np.mean(self.vf_norms), "std": np.std(self.vf_norms)},
         })
 
-    def update_value(self, obs, returns):
-        """Update the value network to fit the value function of the current
-        policy `V_pi`. This functions performs a single iteration over the
-        set of experiences drawing mini-batches of examples and fits the value
-        network using MSE loss.
+    def update_policy(self, o, a, ad, lp_old):
+        """Perform one gradient update step on the policy network.
 
         Args:
-            obs: torch.Tensor
-                Tensor of shape (N, *), giving the observations of the agent.
-            returns: torch.Tensor
-                Tensor of shape (N,), giving the obtained returns.
+            o: torch.Tensor
+                Tensor of shape (N, *), giving the mini-batch of observations.
+            a: torch.Tensor
+                Tensor of shape (N,), giving the mini-batch of actions.
+            ad: torch.Tensor
+                Tensor of shape (N,), giving the mini-batch of advantages.
+            lp_old: torch.Tensor
+                Tensor of shape (N,), giving the log probs of the actions
+                calculated the old parameters of the policy network.
         """
-        returns = returns.reshape(-1, 1) # match the output shape of the net (B, 1)
+        logits = self.policy_network(o)
+        logp = -F.cross_entropy(logits, a.to(logits.device), reduction="none")
+        rho = torch.exp(logp - lp_old.to(logp.device))
 
-        # Compute the values using the old parameters.
-        values_old = self.value(obs).reshape(-1, 1) # uses torch.no_grad
+        # Normalize the advantages and compute the clipped loss.
+        # Note that advantages are normalized at the mini-batch level.
+        eps = torch.finfo(torch.float32).eps
+        ad = (ad - ad.mean()) / (ad.std() + eps)
+        ad = ad.to(logp.device)
+        clip_adv = torch.clip(rho, 1-self.pi_clip, 1+self.pi_clip) * ad
+        pi_loss = -torch.mean(torch.min(rho * ad, clip_adv))
 
-        # Iterate over the collected experiences and update the value network.
-        vf_losses, vf_norms = [], []
-        for _ in range(self.n_epochs):
+        # Add entropy regularization. Augment the policy loss with the mean
+        # entropy of the policy calculated over the sampled observations.
+        policy_entropy = Categorical(logits=logits).entropy()
+        loss = pi_loss - self.entropy_reg * policy_entropy.mean()
 
-            # For each epoch run through the entire set of experiences and
-            # update the policy by sampling mini-batches at random.
-            dataset = data.TensorDataset(obs, returns, values_old)
-            train_dataloader = data.DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
-            self.value_network.train()
+        # Backward pass.
+        self.policy_optim.zero_grad()
+        loss.backward()
+        total_norm = torch.norm(
+            torch.stack([torch.norm(p.grad) for p in self.policy_network.parameters()]))
+        torch.nn.utils.clip_grad_norm_(self.policy_network.parameters(), self.clip_grad)
+        self.policy_optim.step()
 
-            for o, r, v_old in train_dataloader:
-                # Forward pass.
-                # We are also clipping the value function loss following the
-                # implementation of OpenAI.
-                v_pred = self.value_network(o)
-                v_clip = v_old + torch.clip(v_pred-v_old, -self.vf_clip, self.vf_clip)
-                r = r.to(v_pred.device)
-                vf_loss = torch.mean(torch.max((v_pred - r)**2, (v_clip - r)**2))
+        # Bookkeeping.
+        self.n_updates += 1
+        self.pi_losses.append(pi_loss.item())
+        self.pi_norms.append(total_norm.item())
+        self.total_losses.append(loss.item())
 
-                # Backward pass.
-                self.value_optim.zero_grad()
-                vf_loss.backward()
-                total_norm = torch.norm(torch.stack(
-                    [torch.norm(p.grad) for p in self.value_network.parameters()]))
-                torch.nn.utils.clip_grad_norm_(self.value_network.parameters(), self.clip_grad)
-                self.value_optim.step()
+    def update_value(self, o, r, v_old):
+        """Perform one gradient update step on the value network.
 
-                # Bookkeeping.
-                vf_losses.append(vf_loss.item())
-                vf_norms.append(total_norm.item())
+        Args:
+            o: torch.Tensor
+                Tensor of shape (N, *), giving the mini-batch of observations.
+            r: torch.Tensor
+                Tensor of shape (N,), giving the mini-batch of rewards.
+            v_old: torch.Tensor
+                Tensor of shape (N,), giving the values of the states calculated
+                using the the old parameters of the value network.
+        """
+        # Forward pass.
+        # We are also clipping the value function loss following the
+        # implementation of OpenAI.
+        v_pred = self.value_network(o)
+        v_clip = v_old + torch.clip(v_pred-v_old, -self.vf_clip, self.vf_clip)
+        r = r.to(v_pred.device)
+        vf_loss = torch.mean(torch.max((v_pred - r)**2, (v_clip - r)**2))
 
-        # Store the stats.
-        self.train_history[-1].update({
-            "Value Loss"      : {"avg": np.mean(vf_losses), "std": np.std(vf_losses)},
-            "Value Grad Norm" : {"avg": np.mean(vf_norms), "std": np.std(vf_norms)},
-        })
+        # Backward pass.
+        self.value_optim.zero_grad()
+        vf_loss.backward()
+        total_norm = torch.norm(torch.stack(
+            [torch.norm(p.grad) for p in self.value_network.parameters()]))
+        torch.nn.utils.clip_grad_norm_(self.value_network.parameters(), self.clip_grad)
+        self.value_optim.step()
+
+        # Bookkeeping.
+        self.vf_losses.append(vf_loss.item())
+        self.vf_norms.append(total_norm.item())
 
 #
